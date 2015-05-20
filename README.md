@@ -20,10 +20,14 @@ Mac:
 
 # Usage
 
-saveFigure(fileName, [ figure handle ])
-fileNameList = saveFigure(fileNameWithoutExtension, figureHandle, 'ext', {'pdf', 'png', 'svg', 'fig', 'eps', 'hires.png'});
+Save to specific file type:
+`saveFigure('foo.pdf');`
+`saveFigure('foo.png', gcf);`
 
-If fileName has no extension, the figure will be saved in multiple formats as specified by the 'ext' parameter value pair. If no 'ext' is specified, the default list is {'pdf', 'png', 'fig'}.
+Save to set of file types, return full file names:
+`fileNameList = saveFigure('foo', gcf, 'ext', {'pdf', 'png', 'svg', 'fig', 'eps', 'hires.png'});`
+
+If fileName has no extension, the figure will be saved in multiple formats as specified by the 'ext' parameter value pair. If no 'ext' is specified, the default list is `{'pdf', 'png', 'fig'}`.
 
 # Method
 
@@ -34,5 +38,5 @@ After running plot2svg internally, saveFigure calls out to Inkscape to convert t
 # Known limitations
 
 - Because plot2svg manually reproduces Matlab figure in SVG format, some of the newer plotting tools released in R2014b are not fully supported yet. They can be added easily, but this requires crawling through Matlab's graphics object hierarchy and converting into an equivalent SVG format.
-- Notably, legends are not currently supported
+- Notably, legends are not currently supported in new versions of Matlab, though this hopefully won't be too difficult to add back in.
 
