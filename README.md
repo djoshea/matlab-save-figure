@@ -8,6 +8,10 @@ SaveFigure is a Matlab utility which provides aesthetically pleasing figure expo
 - sets or preserves nicely rendered fonts (specified in options)
 - preserves vector graphics
 
+This code is essentially a nice wrapper around [Juerg Schwizer's](http://www.zhinst.com/blogs/schwizer/) plot2svg utility. The advantage of this approach is that we have complete control of figure output and appearance; the disadvantage is that it requires a complete reconstruction of the figure as an SVG, and so the code will have to be kept up to date as Matlab adds new graphics objects (e.g. `stem`, `histogram`, `legend`). 
+
+I've found the outputs to be more consistent, more faithful to the on-screen displayed figure, and more aesthetically pleasing than other excellent alternatives, including [export_fig](http://www.mathworks.com/matlabcentral/fileexchange/23629-export-fig) by Oliver Woodward and Yair Altman and [savefig](http://www.mathworks.com/matlabcentral/fileexchange/10889-savefig) by Peder Axensten. 
+
 # Installation
 
 SaveFigure requires ImageMagick and inkscape to be installed and accessible from the command line in order to run. The easiest way to accomplish this is to run:
@@ -43,3 +47,10 @@ After running plot2svg internally, saveFigure calls out to Inkscape to convert t
 - Because plot2svg manually reproduces Matlab figure in SVG format, some of the newer plotting tools released in R2014b are not fully supported yet. They can be added easily, but this requires crawling through Matlab's graphics object hierarchy and converting into an equivalent SVG format.
 - Notably, legends are not currently supported in new versions of Matlab, though this hopefully won't be too difficult to add back in.
 
+# Credit
+
+saveFigure internally relies heavily on (and includes within it) code from:
+
+- [plot2svg](http://www.mathworks.com/matlabcentral/fileexchange/7401-scalable-vector-graphics--svg--export-of-figures) by [Juerg Schwizer](http://www.zhinst.com/blogs/schwizer/)
+- [copyfig](http://www.mathworks.com/matlabcentral/fileexchange/23629-export-fig) by Oliver Woodford and (Yair Altman)[http://undocumentedmatlab.com]
+- [GetFullPath](http://www.mathworks.com/matlabcentral/fileexchange/28249-getfullpath) by Jan Simon
