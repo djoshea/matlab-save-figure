@@ -21,10 +21,13 @@ Mac:
 # Usage
 
 Save to specific file type:
+
 `saveFigure('foo.pdf');`
+
 `saveFigure('foo.png', gcf);`
 
 Save to set of file types, return full file names:
+
 `fileNameList = saveFigure('foo', gcf, 'ext', {'pdf', 'png', 'svg', 'fig', 'eps', 'hires.png'});`
 
 If fileName has no extension, the figure will be saved in multiple formats as specified by the 'ext' parameter value pair. If no 'ext' is specified, the default list is `{'pdf', 'png', 'fig'}`.
