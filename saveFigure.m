@@ -1,5 +1,6 @@
 function fileList = saveFigure(varargin)
-% saveFigure(name, exts, figh)
+% saveFigure('filename.pdf', figh)
+% fileList = saveFigure('filename', figh, 'ext', {'pdf', 'fig', 'png', 'eps'})
 % 
 % Saves a figure to a variety of formats by first exporting to svg, using
 % Jeurg Schwizer's excellent plot2svg utility, and then using ImageMagick
@@ -37,7 +38,7 @@ function fileList = saveFigure(varargin)
 % Param / Value pairs:
 % 
 %   fontName: string of font name to replace all fonts in figure with.
-%        default = 'Myriad Pro'. Any font installed on your system may be
+%        default = 'Source Sans Pro'. Any font installed on your system may be
 %        used.
 %
 %   ext : list of extensions to use when name does not have extension already,
@@ -55,7 +56,7 @@ function fileList = saveFigure(varargin)
 %  saveFigure('figureName.png', gcf, 'fontName', 'Helvetica');
 %
 % Dan O'Shea dan@djoshea.com
-% (c) 2014 
+% (c) 2014-2015
 % 
 % This code internally relies heavily on:
 %   plot2svg : Juerg Schwizer [ http://www.zhinst.com/blogs/schwizer/ ]
