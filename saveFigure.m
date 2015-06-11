@@ -246,7 +246,7 @@ function fileList = saveFigure(varargin)
     end
     
     if fileInfo.isKey('eps')
-        file = fileInfo('eps')
+        file = fileInfo('eps');
         fileList{end+1} = file;
         if ~quiet
             printmsg('eps', file);
@@ -822,7 +822,7 @@ function varargout = plot2svg(param1,id,pixelfiletype)
 
     global PLOT2SVG_globals
     global colorname
-    progversion='15-Sep-2012';
+%     progversion='15-Sep-2012';
     PLOT2SVG_globals.runningIdNumber = 0;
     PLOT2SVG_globals.octave = false;
     PLOT2SVG_globals.checkUserData = true;
@@ -841,8 +841,8 @@ function varargout = plot2svg(param1,id,pixelfiletype)
         PLOT2SVG_globals.octave = true;
         disp('   Info: PLOT2SVG runs in Octave mode.')
     else
-        if str2num(matversion(1))<6 % Check for matlab version and print warning if matlab version lower than version 6.0 (R.12)
-            disp('   Warning: Future versions may no more support older versions than MATLAB R12.')
+        if str2double(matversion(1))<6 % Check for matlab version and print warning if matlab version lower than version 6.0 (R.12)
+            disp('   Warning: Future versions may not support versions older than MATLAB R12.')
         end
     end
     if nargout > 1
@@ -954,7 +954,7 @@ function varargout = plot2svg(param1,id,pixelfiletype)
         currenttype = get(ax(j),'Type');
         if strcmp(currenttype,'axes')
             group=group+1;
-            groups=[groups group];
+            groups=[groups group]; %#ok<*AGROW>
             group=axes2svg(fid,id,ax(j),group,paperpos);
         elseif strcmp(currenttype, 'legend')
             group=group+1;
@@ -1005,18 +1005,18 @@ function clippingIdString = clipping2svg(fid, id, ax, paperpos, axpos, projectio
                         clipz = clip(:, 3);
                     end
                     if strcmp(get(ax,'XScale'),'log')
-                        clipx(find(clipx<=0)) = NaN;
+                        clipx(clipx<=0) = NaN;
                         clipx=log10(clipx);
                     end
                     if strcmp(get(ax,'YScale'),'log')
-                        clipy(find(clipy<=0)) = NaN;
+                        clipy(clipy<=0) = NaN;
                         clipy=log10(clipy);
                     end
                     if strcmp(get(ax,'ZScale'),'log')
-                        clipz(find(clipz<=0)) = NaN;
+                        clipz(clipz<=0) = NaN;
                         clipz=log10(clipz);
                     end
-                    [x,y,z] = project(clipx,clipy,clipz,projection);
+                    [x,y,~] = project(clipx,clipy,clipz,projection);
                     x = (x*axpos(3)+axpos(1))*paperpos(3);
                     y = (1-(y*axpos(4)+axpos(2)))*paperpos(4);
                     clippingIdString = createId;
@@ -1064,7 +1064,7 @@ function animation2svg(fid, id)
                 animation = struct_data.svg.Animation;
                 for i = 1:length(animation)
                     if ~isfield(animation(i).SubAnimation, 'Type')
-                        error(['Missing field ''Type'' for animation.']);
+                        error('Missing field ''Type'' for animation.');
                     end
                     switch animation(i).SubAnimation.Type
                         case 'Opacity', type = 'opacity'; animationType = 0;
@@ -1114,7 +1114,7 @@ function [filterString, boundingBox] = filter2svg(fid, id, boundingBoxAxes, boun
         if isfield(struct_data,'svg')
             boundingBox = boundingBoxElement;
             absolute = true;
-            offset = 0;
+%             offset = 0;
             if isfield(struct_data.svg,'BoundingBox')
                 if isfield(struct_data.svg.BoundingBox, 'Type')
                     switch struct_data.svg.BoundingBox.Type
@@ -1168,7 +1168,7 @@ function [filterString, boundingBox] = filter2svg(fid, id, boundingBoxAxes, boun
                     if isfield(filter(i).Subfilter, 'Type')
                         fprintf(fid,'  <%s', filter(i).Subfilter.Type);
                     else
-                        error(['Missing field ''Type'' for filter.'])
+                        error('Missing field ''Type'' for filter.')
                     end
                     try
                         if isfield(filter(i).Subfilter, 'Position')
@@ -1179,7 +1179,7 @@ function [filterString, boundingBox] = filter2svg(fid, id, boundingBoxAxes, boun
                         % strings.
                         resultStrings{length(resultStrings) + 1} = filter(i).Subfilter.Result;
                         % The strmatch below is a very inefficient search (Matlab limitation)
-                        if ~isempty(strmatch(filter(i).Subfilter.Result, predefinedSources))
+                        if ismember(filter(i).Subfilter.Result, predefinedSources)
                             error('Usage of a predefined filter source as filter result string is not allowed.');
                         end
                         switch (filter(i).Subfilter.Type)
@@ -4097,5 +4097,17 @@ function [f, v, fvc, fva] = surface2patch(s)
     fva = reshape(a, [am*an ap]);
     f = [q q+m q+m+1 q+1];
 end
+
+function vec = makecol( vec )
+% transpose if it's currently a row vector (unless its 0 x 1, keep as is)
+if (size(vec,2) > size(vec, 1) && isvector(vec)) && ~(size(vec, 1) == 0 && size(vec, 2) == 1)
+    vec = vec';
+end
+if size(vec, 1) == 1 && size(vec, 2) == 0
+    vec = vec';
+end
+end
+
+
 
     
