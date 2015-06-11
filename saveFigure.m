@@ -281,9 +281,9 @@ function convertSvgToPdf(svgFile, pdfFile)
 
     % MATLAB has it's own older version of libtiff.so inside it, so we
     % clear that path when calling imageMagick to avoid issues
-%     cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --export-pdf=%s %s', ...
-%         inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
-    cmd = sprintf('%s --export-pdf %s %s', inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
+    cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --export-pdf=%s %s', ...
+        inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
+    %cmd = sprintf('%s --export-pdf %s %s', inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
     [status, result] = system(cmd);
 
     if status
