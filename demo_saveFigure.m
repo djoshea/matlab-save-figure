@@ -16,22 +16,23 @@ function demo_saveFigure()
     saveFigure('demoScatter.png')
 
     
-    % Plot timeseries with translucent error regions
-    randseed(2);
-    K = 6; N = 1000; t = (0:N-1) - 100;
-    y = sgolayfilt(randn(N, K), 3, 99, [], 1);
-    ye = sgolayfilt(randn(N, K) * 0.5, 3, 99, [], 1);
+% Plot timeseries with translucent error regions
+randseed(2);
+K = 6; N = 1000; t = (0:N-1) - 100;
+y = sgolayfilt(randn(N, K), 3, 99, [], 1);
+ye = sgolayfilt(randn(N, K) * 0.5, 3, 99, [], 1);
 
-    figure(2), clf; hold on;
-    cmap = parula(K);
-    for k = 1:K
-        errorshade(t, y(:, k), ye(:, k), cmap(k, :), 'errorAlpha', 0.5, 'lineAlpha', 0.9);
-    end
+figure(2), clf; hold on;
+cmap = parula(K);
+for k = 1:K
+    % errorshade defined below
+    errorshade(t, y(:, k), ye(:, k), cmap(k, :), 'errorAlpha', 0.5, 'lineAlpha', 0.9);
+end
 
-    box off; xlim([0 800]);
-    xlabel('Time'); ylabel('Signal'); title('SaveFigure Demo');
-    
-    saveFigure('demoTimeseries.png');
+box off; xlim([0 800]);
+xlabel('Time'); ylabel('Signal'); title('SaveFigure Demo');
+
+saveFigure('demoTimeseries.png');
 end
 
 %% errorshade code
