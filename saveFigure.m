@@ -69,11 +69,11 @@ function fileList = saveFigure(varargin)
     p = inputParser;
     p.addOptional('name', '', @(x) ischar(x) || iscellstr(x) || isstruct(x) || isa(x, 'function_handle'));
     p.addOptional('figh', gcf, @ishandle);
-    p.addParameter('fontName', 'Source Sans Pro', @ischar);
-    p.addParameter('ext', [], @(x) ischar(x) || iscellstr(x));
-    p.addParameter('copy', verLessThan('matlab', '8.4'), @islogical); % copy only for older versions
-    p.addParameter('quiet', true, @islogical);
-    p.addParameter('notes', '', @ischar);
+    p.addParamValue('fontName', 'Source Sans Pro', @ischar);
+    p.addParamValue('ext', [], @(x) ischar(x) || iscellstr(x));
+    p.addParamValue('copy', verLessThan('matlab', '8.4'), @islogical); % copy only for older versions
+    p.addParamValue('quiet', true, @islogical);
+    p.addParamValue('notes', '', @ischar);
 %     p.KeepUnmatched = true;
     p.parse(varargin{:});
     hfig = p.Results.figh;
