@@ -36,12 +36,70 @@ Save to set of file types, return full file names:
 
 If fileName has no extension, the figure will be saved in multiple formats as specified by the 'ext' parameter value pair. If no 'ext' is specified, the default list is `{'pdf', 'png', 'fig'}`.
 
+# Demo
+
+From `demo_saveFigure`:
+
+```
+% Plot scatter plot with alpha blending
+randseed(1); figure(1); clf;
+N = 500; dx = randn(N, 1); dy = randn(N, 1);
+h = plot(dx, dy, 'o', 'MarkerFaceColor', [0.6 0.6 1], 'LineWidth', 0.1, 'MarkerEdgeColor', 'w', 'MarkerSize', 8);
+setMarkerOpacity(h, 0.3, 0.6);
+hold on
+N = 500; dx = randn(N, 1) + 1; dy = randn(N, 1);
+h = plot(dx, dy, 'o', 'MarkerFaceColor', [1 0.6 0.6], 'LineWidth', 0.1, 'MarkerEdgeColor', 'w', 'MarkerSize', 8);
+setMarkerOpacity(h, 0.3, 0.6);
+
+xlabel('Param 1'); ylabel('Param 2'); title('SaveFigure Demo');
+box off; axis equal;
+
+saveFigure('demoScatter.png')
+```
+
+![](https://github.com/djoshea/matlab-save-figure/blob/master/demoScatter.png)
+
+```
+% Plot timeseries with translucent error regions
+randseed(2);
+K = 6; N = 1000; t = (0:N-1) - 100;
+y = sgolayfilt(randn(N, K), 3, 99, [], 1);
+ye = sgolayfilt(randn(N, K) * 0.5, 3, 99, [], 1);
+
+figure(2), clf; hold on;
+cmap = parula(K);
+for k = 1:K
+    % errorshade defined below
+    errorshade(t, y(:, k), ye(:, k), cmap(k, :), 'errorAlpha', 0.5, 'lineAlpha', 0.9);
+end
+
+box off; xlim([0 800]);
+xlabel('Time'); ylabel('Signal'); title('SaveFigure Demo');
+
+saveFigure('demoTimeseries.png');
+```
+
+![](https://github.com/djoshea/matlab-save-figure/blob/master/demoTimeseries.png)
+
+
 # Method
 
 SaveFigure at its core is built atop an updated version of Jeurg Schwizer's excellent [plot2svg utility](http://www.mathworks.com/matlabcentral/fileexchange/7401-scalable-vector-graphics--svg--export-of-figures) which converts figures into SVG files. Most of Jeurg's code is included within saveFigure, but I've changed a few things to make it compatible with the new hg2 graphics library introduced in R2014a. I've also changed a few things with patch object rendering to improve the SVG rendering aesthetics.
 
 After running plot2svg internally, saveFigure calls out to Inkscape to convert the SVG into a PDF file, and then to image-magick's convert utility to convert PDF into other requested formats. I've found Inkscape's SVG to PDF conversion to be more reliable than image-magick's.
  
+# Line and Marker Opacity
+
+Included in the repo are two utilities `setLineOpacity` and `setMarkerOpacity` which will set the opacity of lines and markers in plots, respectively.
+
+`setLineOpacity(hLine, edgeAlpha)`
+
+and 
+
+`setMarkerOpacity(hLine, markerFaceAlpha, markerEdgeAlpha)`
+
+In newer versions of MATLAB, this opacity setting will occur directly on the graphics handle and alter the appearance of the Matlab figure. In older versions of Matlab where these opacity settings are not supported, these settings will be stored in the UserHandle of the figure, where saveFigure will search for the setting upon saving. Thus, the opacity will not be visible in Matlab but will be reflected in the saved PDF, PNG, or EPS file.
+
 # Known limitations
 
 - Because plot2svg manually reproduces Matlab figure in SVG format, some of the newer plotting tools released in R2014b are not fully supported yet. They can be added easily, but this requires crawling through Matlab's graphics object hierarchy and converting into an equivalent SVG format.
