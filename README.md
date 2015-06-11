@@ -44,11 +44,13 @@ From `demo_saveFigure`:
 % Plot scatter plot with alpha blending
 randseed(1); figure(1); clf;
 N = 500; dx = randn(N, 1); dy = randn(N, 1);
-h = plot(dx, dy, 'o', 'MarkerFaceColor', [0.6 0.6 1], 'LineWidth', 0.1, 'MarkerEdgeColor', 'w', 'MarkerSize', 8);
+h = plot(dx, dy, 'o', 'MarkerFaceColor', [0.6 0.6 1], 'LineWidth', 0.1, ...
+  'MarkerEdgeColor', 'w', 'MarkerSize', 8);
 setMarkerOpacity(h, 0.3, 0.6);
 hold on
 N = 500; dx = randn(N, 1) + 1; dy = randn(N, 1);
-h = plot(dx, dy, 'o', 'MarkerFaceColor', [1 0.6 0.6], 'LineWidth', 0.1, 'MarkerEdgeColor', 'w', 'MarkerSize', 8);
+h = plot(dx, dy, 'o', 'MarkerFaceColor', [1 0.6 0.6], 'LineWidth', 0.1, ...
+  'MarkerEdgeColor', 'w', 'MarkerSize', 8);
 setMarkerOpacity(h, 0.3, 0.6);
 
 xlabel('Param 1'); ylabel('Param 2'); title('SaveFigure Demo');
