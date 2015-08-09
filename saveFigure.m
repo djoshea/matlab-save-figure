@@ -69,7 +69,7 @@ function fileList = saveFigure(varargin)
     p = inputParser;
     p.addOptional('name', '', @(x) ischar(x) || iscellstr(x) || isstruct(x) || isa(x, 'function_handle'));
     p.addOptional('figh', gcf, @ishandle);
-    p.addParamValue('fontName', 'Source Sans Pro', @ischar);
+    p.addParamValue('fontName', '', @ischar);
     p.addParamValue('ext', [], @(x) ischar(x) || iscellstr(x));
     p.addParamValue('copy', verLessThan('matlab', '8.4'), @islogical); % copy only for older versions
     p.addParamValue('quiet', true, @islogical);
@@ -200,8 +200,18 @@ function fileList = saveFigure(varargin)
         svgFile = file;
         
         % set font to Myriad Pro
-        figSetFont(hfigCopy, 'FontName', fontName);
-        plot2svg(file, hfigCopy);
+        if ~isempty(fontName)
+            figSetFont(hfigCopy, 'FontName', fontName);
+        end
+        
+        if verLessThan('matlab', '8.4')
+            plot2svg(file, hFigCopy);
+        else
+            % use Matlab's built in svg engine (from Batik Graphics2D for
+            % java)
+            set(hfigCopy,'Units','pixels');   % All data in the svg-file is saved in pixels
+            print('-dsvg', file);
+        end
     end
     
     if fileInfo.isKey('pdf') || needPdf
@@ -304,14 +314,16 @@ function convertPdf(pdfFile, file, hires)
         density = 600;
         resize = 100;
     else
-        density = 600;
-        resize = 25;
+        density = 200;
+        resize = 50;
     end
 
     % MATLAB has it's own older version of libtiff.so inside it, so we
     % clear that path when calling imageMagick to avoid issues
-    cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -quality 100 -density %d %s -resize %d%% %s', ...
-        density, escapePathForShell(pdfFile), resize, escapePathForShell(file));
+%     cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -quality 100 -density %d %s -resize %d%% %s', ...
+%         density, escapePathForShell(pdfFile), resize, escapePathForShell(file));
+    cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -quality 100 %s %s', ...
+        escapePathForShell(pdfFile), escapePathForShell(file));
     [status, result] = system(cmd);
 
     if status
