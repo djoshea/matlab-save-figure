@@ -17,10 +17,10 @@ I've found the outputs to be more consistent, more faithful to the on-screen dis
 SaveFigure requires ImageMagick and inkscape to be installed and accessible from the command line in order to run. The easiest way to accomplish this is to run:
 
 Linux:
-`sudo apt-get install inkscape image-magick`
+`sudo apt-get install inkscape imagemagick`
 
 Mac:
-`brew install inkscape image-magick`
+`brew install inkscape imagemagick`
 
 # Usage
 
