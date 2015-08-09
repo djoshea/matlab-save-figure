@@ -304,8 +304,8 @@ function convertPdf(pdfFile, file, hires)
         density = 600;
         resize = 100;
     else
-        density = 300;
-        resize = 100;
+        density = 600;
+        resize = 25;
     end
 
     % MATLAB has it's own older version of libtiff.so inside it, so we
@@ -2502,6 +2502,8 @@ function group=axchild2svg(fid,id,axIdString,ax,group,paperpos,axchild,axpos,gro
                 pointc=(pointc-clim(1))/(clim(2)-clim(1))*(size(cmap,1)-1)+1;
             end
             % Limit index to smallest or biggest color index
+            % @djoshea modified to preserve nans
+            nanMask = isnan(pointc);
             pointc=max(pointc,1);
             if ~ischar(get(axchild(i),'FaceAlpha'))
                 face_opacity = get(axchild(i),'FaceAlpha');
@@ -2529,6 +2531,7 @@ function group=axchild2svg(fid,id,axIdString,ax,group,paperpos,axchild,axpos,gro
                 edge_opacity = 1.0;
             end
             pointc=min(pointc,size(cmap,1));
+            pointc(nanMask) = NaN;
             linestyle=get(axchild(i),'LineStyle');
             linewidth=get(axchild(i),'LineWidth');
             if strcmp(get(ax,'XScale'),'log')
@@ -2924,6 +2927,9 @@ function group=axchild2svg(fid,id,axIdString,ax,group,paperpos,axchild,axpos,gro
             py = ly / nR;
             for iR = 1:nR
                 for iC = 1:nC
+                    if isnan(pointc(iR, iC))
+                        a = 1;
+                    end
                     c = cmap(pointc(iR, iC), :);
                     fprintf(fid, '<rect x="%f" y="%f" width="%f" height="%f" fill="rgb(%.0f, %.0f, %.0f)" opacity="1.00"/>', ...
                         pointsx + px*(iC-1), pointsy + py*(iR-1), px * 1.01, py * 1.01, c(1)*255, c(2)*255, c(3)*255);
