@@ -176,7 +176,12 @@ function fileList = saveFigure(varargin)
     else
         hfigCopy = hfig;
     end
-   
+    
+    % make sure the size of the figure is WYSIWYG
+    set(hfigCopy, 'PaperUnits' ,'centimeters');
+    set(hfigCopy, 'Units', 'centimeters');
+    set(hfigCopy, 'PaperPositionMode', 'auto');
+    
     % start with svg format, convert to pdf, then to other formats 
     needSvg = any(ismember(setdiff(extListFull, 'fig'), extList));
     needPdf = any(ismember(setdiff(extListFull, {'fig', 'svg'}), extList));
@@ -242,7 +247,7 @@ function fileList = saveFigure(varargin)
             printmsg('png', file);
         end
         
-        convertPdf(pdfFile, file);
+        convertPdf(pdfFile, file, false);
     end
     
     if fileInfo.isKey('hires.png')
@@ -261,7 +266,7 @@ function fileList = saveFigure(varargin)
         if ~quiet
             printmsg('eps', file);
         end
-        convertPdf(pdfFile, file, true);
+        convertPdf(pdfFile, file);
     end
 
     if p.Results.copy
@@ -310,20 +315,17 @@ function convertPdf(pdfFile, file, hires)
         hires = false;
     end
 
-    if hires
-        density = 600;
-        resize = 100;
-    else
-        density = 200;
-        resize = 50;
-    end
-
     % MATLAB has it's own older version of libtiff.so inside it, so we
     % clear that path when calling imageMagick to avoid issues
 %     cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -quality 100 -density %d %s -resize %d%% %s', ...
 %         density, escapePathForShell(pdfFile), resize, escapePathForShell(file));
-    cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -quality 100 %s %s', ...
+    if hires
+        cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -density 300 %s -resample 300 %s', ...
         escapePathForShell(pdfFile), escapePathForShell(file));
+    else
+        cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -density 300 %s -resample 72 %s', ...
+            escapePathForShell(pdfFile), escapePathForShell(file));
+    end
     [status, result] = system(cmd);
 
     if status
@@ -349,7 +351,17 @@ end
 function [ext, fileSansExt] = getExtensionFromFile(file)
     [fPath, fName, dotext] = fileparts(file);
     if ~isempty(dotext)
-        ext = dotext(2:end);
+        if strcmp(dotext, '.png')
+            [~, fName2, ext2] = fileparts(fName);
+            if strcmp(ext2, '.hires')
+                ext = 'hires.png';
+                fName = fName2;
+            else
+                ext = '.png';
+            end
+        else
+            ext = dotext(2:end);
+        end
     else
         ext = '';
     end
