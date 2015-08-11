@@ -8,9 +8,9 @@ SaveFigure is a Matlab utility which provides aesthetically pleasing figure expo
 - sets or preserves nicely rendered fonts (specified in options)
 - preserves vector graphics
 
-This code is essentially a nice wrapper around [Juerg Schwizer's](http://www.zhinst.com/blogs/schwizer/) plot2svg utility. The advantage of this approach is that we have complete control of figure output and appearance; the disadvantage is that it requires a complete reconstruction of the figure as an SVG, and so the code will have to be kept up to date as Matlab adds new graphics objects (e.g. `stem`, `histogram`, `legend`). 
-
 I've found the outputs to be more consistent, more faithful to the on-screen displayed figure, and more aesthetically pleasing than other excellent alternatives, including [export_fig](http://www.mathworks.com/matlabcentral/fileexchange/23629-export-fig) by Oliver Woodward and Yair Altman and [savefig](http://www.mathworks.com/matlabcentral/fileexchange/10889-savefig) by Peder Axensten. 
+
+To achieve faithful, WYSIWYG vector reproduction of Matlab figures, we generate SVGs, then convert to PDF using Inkscape, and then to PNG and EPS if requested using ImageMagick's `convert` utility. I've found that `convert` rarely does a nice job going from SVG to PDF directly, though this could simply be a matter of setting the correct flags. So Matlab is only responsible for generating the SVG. For newer versions of Matlab (R2014a or newer), `saveFigure` uses Matlab's new internal SVG engine, i.e. `print -dsvg`, which faithfully reproduces Matlab figures as SVG. For older versions, the code for generating SVGs is essentially a nice wrapper around [Juerg Schwizer's](http://www.zhinst.com/blogs/schwizer/) plot2svg utility, with a few minor tweaks. The advantage of this approach is that we have complete control of figure output and appearance; the disadvantage is that it requires a complete reconstruction of the figure as an SVG. Consequently, it may not perfectly reproduce the figure in all instances, but it does a fairly decent job.
 
 # Installation
 
@@ -82,13 +82,6 @@ saveFigure('demoTimeseries.png');
 ```
 
 ![](https://github.com/djoshea/matlab-save-figure/blob/master/demoTimeseries.png)
-
-
-# Method
-
-SaveFigure at its core is built atop an updated version of Jeurg Schwizer's excellent [plot2svg utility](http://www.mathworks.com/matlabcentral/fileexchange/7401-scalable-vector-graphics--svg--export-of-figures) which converts figures into SVG files. Most of Jeurg's code is included within saveFigure, but I've changed a few things to make it compatible with the new hg2 graphics library introduced in R2014a. I've also changed a few things with patch object rendering to improve the SVG rendering aesthetics.
-
-After running plot2svg internally, saveFigure calls out to Inkscape to convert the SVG into a PDF file, and then to image-magick's convert utility to convert PDF into other requested formats. I've found Inkscape's SVG to PDF conversion to be more reliable than image-magick's.
  
 # Line and Marker Opacity
 
@@ -101,11 +94,6 @@ and
 `setMarkerOpacity(hLine, markerFaceAlpha, markerEdgeAlpha)`
 
 In newer versions of MATLAB, this opacity setting will occur directly on the graphics handle and alter the appearance of the Matlab figure. In older versions of Matlab where these opacity settings are not supported, these settings will be stored in the UserHandle of the figure, where saveFigure will search for the setting upon saving. Thus, the opacity will not be visible in Matlab but will be reflected in the saved PDF, PNG, or EPS file.
-
-# Known limitations
-
-- Because plot2svg manually reproduces Matlab figure in SVG format, some of the newer plotting tools released in R2014b are not fully supported yet. They can be added easily, but this requires crawling through Matlab's graphics object hierarchy and converting into an equivalent SVG format.
-- Notably, legends are not currently supported in new versions of Matlab, though this hopefully won't be too difficult to add back in.
 
 # Credit
 
