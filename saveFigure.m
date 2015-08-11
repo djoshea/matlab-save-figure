@@ -314,17 +314,26 @@ function convertPdf(pdfFile, file, hires)
     if nargin < 3
         hires = false;
     end
+    
+    if ismac
+        convertPath = '/usr/local/bin/convert';
+        if ~exist(convertPath, 'file')
+            error('Could not locate convert at %s', convertPath);
+        end
+    else
+        convertPath = 'convert';
+    end
 
     % MATLAB has it's own older version of libtiff.so inside it, so we
     % clear that path when calling imageMagick to avoid issues
 %     cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -quality 100 -density %d %s -resize %d%% %s', ...
 %         density, escapePathForShell(pdfFile), resize, escapePathForShell(file));
     if hires
-        cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -density 300 %s -resample 300 %s', ...
-        escapePathForShell(pdfFile), escapePathForShell(file));
+        cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s -verbose -density 300 %s -resample 300 %s', ...
+            convertPath, escapePathForShell(pdfFile), escapePathForShell(file));
     else
-        cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -density 300 %s -resample 72 %s', ...
-            escapePathForShell(pdfFile), escapePathForShell(file));
+        cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s -verbose -density 300 %s -resample 72 %s', ...
+            convertPath, escapePathForShell(pdfFile), escapePathForShell(file));
     end
     [status, result] = system(cmd);
 
