@@ -1,7 +1,7 @@
 function setLineOpacity(s, alpha)
 % setLineOpacity(hLine, alpha)
 
-    [edge, face] = cell(numel(s), 1);
+    [edge, face] = deal(cell(numel(s), 1));
     for i = 1:numel(s)
         
         % tag it as translucent for saveFigure to
