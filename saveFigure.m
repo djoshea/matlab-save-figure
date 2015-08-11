@@ -210,7 +210,7 @@ function fileList = saveFigure(varargin)
         end
         
         if verLessThan('matlab', '8.4')
-            plot2svg(file, hFigCopy);
+            plot2svg(file, hfigCopy);
         else
             % use Matlab's built in svg engine (from Batik Graphics2D for
             % java)
