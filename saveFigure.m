@@ -357,7 +357,7 @@ function [ext, fileSansExt] = getExtensionFromFile(file)
                 ext = 'hires.png';
                 fName = fName2;
             else
-                ext = '.png';
+                ext = 'png';
             end
         else
             ext = dotext(2:end);
