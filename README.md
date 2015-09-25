@@ -8,7 +8,7 @@ SaveFigure is a Matlab utility which provides aesthetically pleasing figure expo
 - sets or preserves nicely rendered fonts (specified in options)
 - preserves vector graphics
 
-I've found the outputs to be more consistent, more faithful to the on-screen displayed figure, and more aesthetically pleasing than other excellent alternatives, including [export_fig](http://www.mathworks.com/matlabcentral/fileexchange/23629-export-fig) by Oliver Woodward and Yair Altman and [savefig](http://www.mathworks.com/matlabcentral/fileexchange/10889-savefig) by Peder Axensten. 
+I've found the outputs to be more consistent, more faithful to the on-screen displayed figure, and more aesthetically pleasing than other excellent alternatives, including [export_fig](http://www.mathworks.com/matlabcentral/fileexchange/23629-export-fig) by Oliver Woodford and Yair Altman and [savefig](http://www.mathworks.com/matlabcentral/fileexchange/10889-savefig) by Peder Axensten. Please note that this submission includes code copied wholesale from Juerg Schwizer, Oliver Woodford, Yair Altman, and Peder Axensten.
 
 To achieve faithful, WYSIWYG vector reproduction of Matlab figures, we generate SVGs, then convert to PDF using Inkscape, and then to PNG and EPS if requested using ImageMagick's `convert` utility. I've found that `convert` rarely does a nice job going from SVG to PDF directly, though this could simply be a matter of setting the correct flags. So Matlab is only responsible for generating the SVG. For newer versions of Matlab (R2014a or newer), `saveFigure` uses Matlab's new internal SVG engine, i.e. `print -dsvg`, which faithfully reproduces Matlab figures as SVG. For older versions, the code for generating SVGs is essentially a nice wrapper around [Juerg Schwizer's](http://www.zhinst.com/blogs/schwizer/) plot2svg utility, with a few minor tweaks. The advantage of this approach is that we have complete control of figure output and appearance; the disadvantage is that it requires a complete reconstruction of the figure as an SVG. Consequently, it may not perfectly reproduce the figure in all instances, but it does a fairly decent job.
 
@@ -21,6 +21,8 @@ Linux:
 
 Mac:
 `brew install inkscape imagemagick`
+
+Windows: not working yet, should be doable. If you'd like to help, I'm happy to accept pull requests!
 
 # Usage
 
