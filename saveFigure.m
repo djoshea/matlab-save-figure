@@ -286,14 +286,14 @@ end
 function convertSvgToPdf(svgFile, pdfFile)
     % use Inkscape to convert pdf
 
-    if ismac
-        inkscapePath = '/usr/local/bin/inkscape';
-        if ~exist(inkscapePath, 'file')
-            error('Could not locate Inkscape at %s', inkscapePath);
-        end
-    else
+%     if ismac
+%         inkscapePath = '/usr/local/bin/inkscape';
+%         if ~exist(inkscapePath, 'file')
+%             error('Could not locate Inkscape at %s', inkscapePath);
+%         end
+%     else
         inkscapePath = 'inkscape';
-    end
+%     end
 
     % MATLAB has it's own older version of libtiff.so inside it, so we
     % clear that path when calling imageMagick to avoid issues
@@ -315,14 +315,14 @@ function convertPdf(pdfFile, file, hires)
         hires = false;
     end
     
-    if ismac
-        convertPath = '/usr/local/bin/convert';
-        if ~exist(convertPath, 'file')
-            error('Could not locate convert at %s', convertPath);
-        end
-    else
+%     if ismac
+%         convertPath = '/usr/local/bin/convert';
+%         if ~exist(convertPath, 'file')
+%             error('Could not locate convert at %s', convertPath);
+%         end
+%     else
         convertPath = 'convert';
-    end
+%     end
 
     % MATLAB has it's own older version of libtiff.so inside it, so we
     % clear that path when calling imageMagick to avoid issues
