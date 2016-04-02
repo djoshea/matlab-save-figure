@@ -215,7 +215,9 @@ function fileList = saveFigure(varargin)
             % use Matlab's built in svg engine (from Batik Graphics2D for
             % java)
             set(hfigCopy,'Units','pixels');   % All data in the svg-file is saved in pixels
-            print('-dsvg', file);
+            % we specify the resolution because complicated figures will
+            % save as an image
+            print('-dsvg', '-r600', file);
         end
     end
     
@@ -297,7 +299,7 @@ function convertSvgToPdf(svgFile, pdfFile)
 
     % MATLAB has it's own older version of libtiff.so inside it, so we
     % clear that path when calling imageMagick to avoid issues
-    cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --export-pdf=%s %s', ...
+    cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --export-dpi=600 --export-pdf=%s %s', ...
         inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
     %cmd = sprintf('%s --export-pdf %s %s', inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
     [status, result] = system(cmd);
@@ -2713,6 +2715,9 @@ function group=axchild2svg(fid,id,axIdString,ax,group,paperpos,axchild,axpos,gro
             y = (1-(y*axpos(4)+axpos(2)))*paperpos(4);
             rect = [min(x) min(y) max(x)-min(x) max(y)-min(y)];
             curvature = get(axchild(i),'Curvature');
+            if isscalar(curvature)
+                curvature(2) = curvature(1);
+            end
             curvature(1) = curvature(1)*rect(3)*0.5;
             curvature(2) = curvature(2)*rect(4)*0.5;
             markerOverlap = 0;
