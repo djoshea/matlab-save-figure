@@ -20,7 +20,9 @@ Linux:
 `sudo apt-get install inkscape imagemagick`
 
 Mac:
-`brew install inkscape imagemagick`
+`brew cask install inkscape`
+
+`brew install imagemagick`
 
 Windows: not working yet, should be doable. If you'd like to help, I'm happy to accept pull requests!
 
@@ -42,7 +44,7 @@ If fileName has no extension, the figure will be saved in multiple formats as sp
 
 From `demo_saveFigure`:
 
-```
+```matlab
 % Plot scatter plot with alpha blending
 randseed(1); figure(1); clf;
 N = 500; dx = randn(N, 1); dy = randn(N, 1);
@@ -63,7 +65,7 @@ saveFigure('demoScatter.png')
 
 ![](https://github.com/djoshea/matlab-save-figure/blob/master/demoScatter.png)
 
-```
+```matlab
 % Plot timeseries with translucent error regions
 randseed(2);
 K = 6; N = 1000; t = (0:N-1) - 100;
@@ -89,11 +91,15 @@ saveFigure('demoTimeseries.png');
 
 Included in the repo are two utilities `setLineOpacity` and `setMarkerOpacity` which will set the opacity of lines and markers in plots, respectively.
 
-`setLineOpacity(hLine, edgeAlpha)`
+```matlab
+setLineOpacity(hLine, edgeAlpha)
+```
 
 and 
 
-`setMarkerOpacity(hLine, markerFaceAlpha, markerEdgeAlpha)`
+```matlab
+setMarkerOpacity(hLine, markerFaceAlpha, markerEdgeAlpha)
+```
 
 In newer versions of MATLAB, this opacity setting will occur directly on the graphics handle and alter the appearance of the Matlab figure. In older versions of Matlab where these opacity settings are not supported, these settings will be stored in the UserHandle of the figure, where saveFigure will search for the setting upon saving. Thus, the opacity will not be visible in Matlab but will be reflected in the saved PDF, PNG, or EPS file.
 
