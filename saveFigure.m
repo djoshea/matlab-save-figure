@@ -214,8 +214,8 @@ function fileList = saveFigure(varargin)
             
             drawnow;
             
-            print('-dsvg', '-painters', file);
-            
+            print(hfig, '-dsvg', '-painters', file);
+
             % now we have to change the svg header to match the size that
             % we want the output to be because Inkscape doesn't determine
             % this correctly
