@@ -175,7 +175,7 @@ function fileList = saveFigure(varargin)
     % make sure the size of the figure is WYSIWYG
     set(hfig, 'PaperUnits' ,'centimeters');
     set(hfig, 'Units', 'centimeters');
-    set(hfig, 'PaperPositionMode', 'auto');
+%     set(hfig, 'PaperPositionMode', 'auto');
     pos = hfig.Position;
     figSizeCm = pos(3:4);
     
@@ -268,7 +268,8 @@ function fileList = saveFigure(varargin)
         
             epsFile = file;
         
-            print(sprintf('-r%d', resolution), '-depsc2', file);
+%             print(hfig, sprintf('-r%d', resolution), '-depsc', file);
+            print2eps(file, hfig, struct('fontswap', false), sprintf('-r%d', resolution));
         end
         
         if needPdf
@@ -373,7 +374,10 @@ function fileList = saveFigure(varargin)
     %             error('Could not locate Inkscape at %s', inkscapePath);
     %         end
     %     else
+        inkscapePath = getenv('INKSCAPE_PATH');
+        if isempty(inkscapePath)
             inkscapePath = 'inkscape';
+        end
     %     end
 
         % MATLAB has it's own older version of libtiff.so inside it, so we
