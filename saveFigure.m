@@ -69,12 +69,16 @@ function fileList = saveFigure(varargin)
     p = inputParser;
     p.addOptional('name', '', @(x) ischar(x) || iscellstr(x) || isstruct(x) || isa(x, 'function_handle'));
     p.addOptional('figh', gcf, @ishandle);
-    p.addParamValue('fontName', '', @ischar);
-    p.addParamValue('ext', [], @(x) ischar(x) || iscellstr(x));
-    p.addParamValue('quiet', true, @islogical);
-    p.addParamValue('notes', '', @ischar);
+    p.addParameter('fontName', '', @ischar);
+    p.addParameter('ext', [], @(x) ischar(x) || iscellstr(x));
+    p.addParameter('quiet', true, @islogical);
+    p.addParameter('notes', '', @ischar);
     p.addParameter('resolution', 300, @isscalar);
     p.addParameter('resolutionHiRes', 600, @isscalar);
+    
+    p.addParameter('painters', [], @(x) isempty(x) || islogical(x)); % set to true to force vector rendering when otherwise not possible
+    p.addParameter('upsample', 1, @isscalar); % improve the rendering quality by rendering to a larger SVG canvas then downsampling. especially useful for small markers or figure sizes, set this to 5-10
+    
 %     p.KeepUnmatched = true;
     p.parse(varargin{:});
     hfig = p.Results.figh;
@@ -181,116 +185,142 @@ function fileList = saveFigure(varargin)
     
     % check the figure complexity and determine which path to take
     checker = matlab.graphics.internal.PrintVertexChecker.getInstance();
-    usePainters = ~checker.exceedsLimits(hfig);
-    
-    if usePainters
-        % start with svg format, convert to pdf, then to other formats 
-        needPdf = any(ismember(setdiff(extList, {'fig', 'svg'}), extList));
-        needSvg = needPdf || any(ismember(extList, 'svg'));
-        
-        % save svg format first
-        if needSvg
-            if fileInfo.isKey('svg')
-                % use actual file name
-                file = fileInfo('svg');
-                fileList{end+1} = file;
-                if ~quiet
-                    printmsg('svg', file);
-                end
-            else
-                % use a temp file name
-                file = [tempname '.svg'];
-                tempList{end+1} = file;
-            end
+    exceedsLimits = ~checker.exceedsLimits(hfig); %#ok<NASGU>
 
-            svgFile = file;
-            
-            % use Matlab's built in svg engine (from Batik Graphics2D for
-            % java)
-            set(hfig,'Units','pixels');   % All data in the svg-file is saved in pixels
-%             set(hfig, 'Position', round(get(hfig, 'Position')));
-            % we specify the resolution because complicated figures will
-            % save as an image, though we shouldn't get here
-            
-            drawnow;
-            
-            print(hfig, '-dsvg', '-painters', file);
-
-            % now we have to change the svg header to match the size that
-            % we want the output to be because Inkscape doesn't determine
-            % this correctly
-            widthStr = sprintf('%.3fcm', figSizeCm(1));
-            heightStr = sprintf('%.3fcm', figSizeCm(2));
-            setSvgFileSize(svgFile, widthStr, heightStr);
+    % trick Matlab into rendering everything at higher resolution
+    origDPI = get(groot, 'ScreenPixelsPerInch');
+    jc = findobjinternal(hfig, '-isa', 'matlab.graphics.primitive.canvas.JavaCanvas', '-depth', 1);
+    if p.Results.upsample > 1
+        dpi = origDPI * p.Results.upsample;
+        if ~isempty(jc)
+            jc.ScreenPixelsPerInch = dpi;
         end
-
-        if needPdf  
-            if fileInfo.isKey('pdf')
-                % use actual file name
-                file = fileInfo('pdf');
-                fileList{end+1} = file;
-                if ~quiet
-                    printmsg('pdf', file);
-                end
-            else
-                % use a temp file name
-                file = [tempname '.pdf'];
-                tempList{end+1} = file;
-            end
-
-            % convert to pdf using inkscape
-            convertSvgToPdf(svgFile, file);
-
-            pdfFile = file;
-        end
-        
     else
-        % save to eps, then convert to pdf
-        needPdf = any(ismember(setdiff(extList, {'fig', 'eps'}), extList));
-        needEps = needPdf || any(ismember(extList, 'eps'));
-
-        if needEps
-            if fileInfo.isKey('eps')
-                % use actual file name
-                file = fileInfo('eps');
-                fileList{end+1} = file;
-                if ~quiet
-                    printmsg('pdf', file);
-                end
-            else
-                % use a temp file name
-                file = [tempname '.eps'];
-                tempList{end+1} = file;
-            end
-            if ~quiet
-                printmsg('eps', file);
-            end
-        
-            epsFile = file;
-        
-%             print(hfig, sprintf('-r%d', resolution), '-depsc', file);
-            print2eps(file, hfig, struct('fontswap', false), sprintf('-r%d', resolution));
-        end
-        
-        if needPdf
-            if fileInfo.isKey('pdf')
-                % use actual file name
-                file = fileInfo('pdf');
-                fileList{end+1} = file;
-                if ~quiet
-                    printmsg('pdf', file);
-                end
-            else
-                % use a temp file name
-                file = [tempname '.pdf'];
-                tempList{end+1} = file;
-            end
-
-            % convert to pdf using inkscape
-            pdfFile = file;
-            convertEpsToPdf(epsFile, pdfFile);
-        end
+        dpi = origDPI;
     end
+    
+%     usePainters = true;
+%     if usePainters
+    % start with svg format, convert to pdf, then to other formats 
+    needPdf = any(ismember(setdiff(extList, {'fig', 'svg'}), extList));
+    needSvg = needPdf || any(ismember(extList, 'svg'));
+
+    % save svg format first
+    if needSvg
+        if fileInfo.isKey('svg')
+            % use actual file name
+            file = fileInfo('svg');
+            fileList{end+1} = file;
+            if ~quiet
+                printmsg('svg', file);
+            end
+        else
+            % use a temp file name
+            file = [tempname '.svg'];
+            tempList{end+1} = file;
+        end
+
+        svgFile = file;
+
+        % use Matlab's built in svg engine (from Batik Graphics2D for
+        % java)
+        set(hfig,'Units','pixels');   % All data in the svg-file is saved in pixels
+%             set(hfig, 'Position', round(get(hfig, 'Position')));
+        % we specify the resolution because complicated figures will
+        % save as an image, though we shouldn't get here
+
+        drawnow;
+
+        % force painters renderer if requested
+        if ~isempty(p.Results.painters) && p.Results.painters
+            rendArgs = {'-painters'};
+        else
+            rendArgs = {};
+        end
+        print(hfig, rendArgs{:}, sprintf('-r%g', dpi), '-dsvg', file);
+%             print(hfig, '-dsvg', '-painters', file);
+
+        % now we have to change the svg header to match the size that
+        % we want the output to be because Inkscape doesn't determine
+        % this correctly
+        widthStr = sprintf('%.3fcm', figSizeCm(1));
+        heightStr = sprintf('%.3fcm', figSizeCm(2));
+        setSvgFileSize(svgFile, widthStr, heightStr, dpi / origDPI);
+    end
+
+    if needPdf  
+        if fileInfo.isKey('pdf')
+            % use actual file name
+            file = fileInfo('pdf');
+            fileList{end+1} = file;
+            if ~quiet
+                printmsg('pdf', file);
+            end
+        else
+            % use a temp file name
+            file = [tempname '.pdf'];
+            tempList{end+1} = file;
+        end
+
+        % convert to pdf using inkscape
+        convertSvgToPdf(svgFile, file);
+
+        pdfFile = file;
+    end
+
+    % cleanup
+    if ~isempty(jc)
+        jc.ScreenPixelsPerInch = origDPI;
+    end
+    
+% this path never worked particularly well on Mac with fonts
+%     else
+%         % save to eps, then convert to pdf
+%         needPdf = any(ismember(setdiff(extList, {'fig', 'eps'}), extList));
+%         needEps = needPdf || any(ismember(extList, 'eps'));
+% 
+%         if needEps
+%             if fileInfo.isKey('eps')
+%                 % use actual file name
+%                 file = fileInfo('eps');
+%                 fileList{end+1} = file;
+%                 if ~quiet
+%                     printmsg('pdf', file);
+%                 end
+%             else
+%                 % use a temp file name
+%                 file = [tempname '.eps'];
+%                 tempList{end+1} = file;
+%             end
+%             if ~quiet
+%                 printmsg('eps', file);
+%             end
+%         
+%             epsFile = file;
+%         
+% %             print(hfig, sprintf('-r%d', resolution), '-depsc', file);
+%             print2eps(file, hfig, struct('fontswap', false), sprintf('-r%d', resolution));
+%         end
+%         
+%         if needPdf
+%             if fileInfo.isKey('pdf')
+%                 % use actual file name
+%                 file = fileInfo('pdf');
+%                 fileList{end+1} = file;
+%                 if ~quiet
+%                     printmsg('pdf', file);
+%                 end
+%             else
+%                 % use a temp file name
+%                 file = [tempname '.pdf'];
+%                 tempList{end+1} = file;
+%             end
+% 
+%             % convert to pdf using inkscape
+%             pdfFile = file;
+%             convertEpsToPdf(epsFile, pdfFile);
+%         end
+%     end
 
     if fileInfo.isKey('png')
         file = fileInfo('png');
@@ -313,15 +343,15 @@ function fileList = saveFigure(varargin)
         convertPdf(pdfFile, file, true);
     end
     
-    if fileInfo.isKey('svg') && ~usePainters
-        file = fileInfo('svg');
-        fileList{end+1} = file;
-        if ~quiet
-            printmsg('svg', file);
-        end
-        
-        convertPdf(pdfFile, file, true);
-    end
+%     if fileInfo.isKey('svg') && ~usePainters
+%         file = fileInfo('svg');
+%         fileList{end+1} = file;
+%         if ~quiet
+%             printmsg('svg', file);
+%         end
+%         
+%         convertPdf(pdfFile, file, true);
+%     end
     
     if fileInfo.isKey('eps') && usePainters
         file = fileInfo('eps');
@@ -340,7 +370,7 @@ function fileList = saveFigure(varargin)
     
     fileList = makecol(fileList);
     
-    function setSvgFileSize(svgFile, widthStr, heightStr)
+    function setSvgFileSize(svgFile, widthStr, heightStr, scaleViewBoxBy)
     % replaces first width="..." and height="..." and adds a viewbox to size
     % the SVG file appropriately for Inkscape processing
 
@@ -354,7 +384,7 @@ function fileList = saveFigure(varargin)
         assert(~isempty(tokens), 'Could not find height in SVG file');
         heightPx = str2double(tokens{1});
 
-        viewBoxStr = sprintf('viewBox="0 0 %g %g"', widthPx, heightPx);
+        viewBoxStr = sprintf('viewBox="0 0 %g %g"', widthPx * scaleViewBoxBy, heightPx * scaleViewBoxBy);
 
         str = regexprep(str, 'width="\d+"', sprintf('width="%s"', widthStr), 'once');
         str = regexprep(str, 'height="\d+"', sprintf('height="%s" %s', heightStr, viewBoxStr), 'once');

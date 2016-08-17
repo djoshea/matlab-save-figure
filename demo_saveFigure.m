@@ -4,35 +4,35 @@ function demo_saveFigure()
     randseed(1); figure(1); clf;
     N = 500; dx = randn(N, 1); dy = randn(N, 1);
     h = plot(dx, dy, 'o', 'MarkerFaceColor', [0.6 0.6 1], 'LineWidth', 0.1, 'MarkerEdgeColor', 'w', 'MarkerSize', 8);
-    setMarkerOpacity(h, 0.3, 0.6);
+    setMarkerOpacity(h, 0.3, 0.3);
     hold on
     N = 500; dx = randn(N, 1) + 1; dy = randn(N, 1);
     h = plot(dx, dy, 'o', 'MarkerFaceColor', [1 0.6 0.6], 'LineWidth', 0.1, 'MarkerEdgeColor', 'w', 'MarkerSize', 8);
-    setMarkerOpacity(h, 0.3, 0.6);
+    setMarkerOpacity(h, 0.3, 0.3);
     
     xlabel('Param 1'); ylabel('Param 2'); title('SaveFigure Demo');
     box off; axis equal;
 
-    saveFigure('demoScatter.png')
+    saveFigure('demoScatter.pdf', 'painters', true)
 
-    
-% Plot timeseries with translucent error regions
-randseed(2);
-K = 6; N = 1000; t = (0:N-1) - 100;
-y = sgolayfilt(randn(N, K), 3, 99, [], 1);
-ye = sgolayfilt(randn(N, K) * 0.5, 3, 99, [], 1);
 
-figure(2), clf; hold on;
-cmap = parula(K);
-for k = 1:K
-    % errorshade defined below
-    errorshade(t, y(:, k), ye(:, k), cmap(k, :), 'errorAlpha', 0.5, 'lineAlpha', 0.9);
-end
+    % Plot timeseries with translucent error regions
+    randseed(2);
+    K = 6; N = 1000; t = (0:N-1) - 100;
+    y = sgolayfilt(randn(N, K), 3, 99, [], 1);
+    ye = sgolayfilt(randn(N, K) * 0.5, 3, 99, [], 1);
 
-box off; xlim([0 800]);
-xlabel('Time'); ylabel('Signal'); title('SaveFigure Demo');
+    figure(2), clf; hold on;
+    cmap = parula(K);
+    for k = 1:K
+        % errorshade defined below
+        errorshade(t, y(:, k), ye(:, k), cmap(k, :), 'errorAlpha', 0.5, 'lineAlpha', 0.9);
+    end
 
-saveFigure('demoTimeseries.png');
+    box off; xlim([0 800]);
+    xlabel('Time'); ylabel('Signal'); title('SaveFigure Demo');
+
+    saveFigure('demoTimeseries.pdf');
 end
 
 %% errorshade code
