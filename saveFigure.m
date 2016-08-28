@@ -186,14 +186,24 @@ function fileList = saveFigure(varargin)
     % check the figure complexity and determine which path to take
     checker = matlab.graphics.internal.PrintVertexChecker.getInstance();
     exceedsLimits = ~checker.exceedsLimits(hfig); %#ok<NASGU>
-
+    
+    % change normalized units to data units when possible
+    % normalized units get messed up when upsampling
+    axh = findall(hfig, 'Type', 'Axes');
+    objNormalizedUnits = findall(axh, 'Units', 'normalized', '-not', 'Type', 'Axes');
+    set(objNormalizedUnits, 'Units', 'data');
+    
     % trick Matlab into rendering everything at higher resolution
-    origDPI = get(groot, 'ScreenPixelsPerInch');
     jc = findobjinternal(hfig, '-isa', 'matlab.graphics.primitive.canvas.JavaCanvas', '-depth', 1);
+    origDPI = jc.ScreenPixelsPerInch;
     if p.Results.upsample > 1
         dpi = origDPI * p.Results.upsample;
         if ~isempty(jc)
+%             jc.OpenGL = 'off';
             jc.ScreenPixelsPerInch = dpi;
+            if exist('AutoAxis', 'class')
+                AutoAxis.updateFigure();
+            end
         end
     else
         dpi = origDPI;
@@ -272,6 +282,8 @@ function fileList = saveFigure(varargin)
     if ~isempty(jc)
         jc.ScreenPixelsPerInch = origDPI;
     end
+    set(objNormalizedUnits, 'Units', 'normalized');
+    
     
 % this path never worked particularly well on Mac with fonts
 %     else
