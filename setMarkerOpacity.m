@@ -8,33 +8,32 @@ function setMarkerOpacity(s, faceAlpha, edgeAlpha)
     for i = 1:length(s)
         % old version, simply tag it as translucent for saveFigure to pick
         % up during SVG authoring
-
-        userdata = get(s(i),'UserData');
-        userdata.svg.MarkerFaceAlpha = faceAlpha;
-        userdata.svg.MarkerEdgeAlpha = edgeAlpha;
-        set(s(i),'UserData', userdata);
+        
+%         userdata = get(s(i),'UserData');
+%         userdata.svg.MarkerFaceAlpha = faceAlpha;
+%         userdata.svg.MarkerEdgeAlpha = edgeAlpha;
+%         set(s(i),'UserData', userdata);
 
         if ~verLessThan('matlab', '8.4')
             mh = s.MarkerHandle;
-            if isa(mh, 'matlab.graphics.GraphicsPlaceholder')
-                drawnow;
+            if ~isa(mh, 'matlab.graphics.GraphicsPlaceholder')
+                % do update now if we can, otherwise wait for MarkedClean
                 mh = s.MarkerHandle;
+          
+                if ~isempty(mh.EdgeColorData)
+                    mh.EdgeColorType = 'truecoloralpha';
+                    mh.EdgeColorData(4) = uint8(edgeAlpha*255);
+                end
+                if ~isempty(mh.FaceColorData)
+                    mh.FaceColorType = 'truecoloralpha';
+                    mh.FaceColorData(4) = uint8(faceAlpha*255);
+                end
             end
 
-            if ~isempty(mh.EdgeColorData)
-                mh.EdgeColorType = 'truecoloralpha';
-                mh.EdgeColorData(4) = uint8(edgeAlpha*255);
-            end
-            if ~isempty(mh.FaceColorData)
-                mh.FaceColorType = 'truecoloralpha';
-                mh.FaceColorData(4) = uint8(faceAlpha*255);
-            end
-
-            % keep transparent
+            % keep transparent on each MarkedClean, otherwise gets lost
             addlistener(s(i),'MarkedClean',...
                 @(ObjH, EventData) keepAlpha(ObjH, EventData, faceAlpha, edgeAlpha));
         end
-
     end
 end
 
