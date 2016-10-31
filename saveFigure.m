@@ -470,8 +470,13 @@ function fileList = saveFigure(varargin)
     %             error('Could not locate convert at %s', convertPath);
     %         end
     %     else
-            convertPath = 'convert';
+%             convertPath = 'convert';
     %     end
+    
+        convertPath = getenv('IMAGEMAGICK_CONVERT_PATH');
+        if isempty(convertPath)
+            convertPath = 'convert';
+        end
 
         % MATLAB has it's own older version of libtiff.so inside it, so we
         % clear that path when calling imageMagick to avoid issues
