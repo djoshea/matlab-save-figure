@@ -27,6 +27,8 @@ function fileList = saveFigure(varargin)
 % Currently not supported for Windows, though adding this shouldn't be too
 % difficult. Mostly just need to get the system() calls to work properly.
 %
+% If the script cannot find imagemagick's convert, set the environment vars
+% 
 % Required
 %
 %   name : name for figure(s), in one of the following forms:
@@ -365,7 +367,7 @@ function fileList = saveFigure(varargin)
 %         convertPdf(pdfFile, file, true);
 %     end
     
-    if fileInfo.isKey('eps') && usePainters
+    if fileInfo.isKey('eps')
         file = fileInfo('eps');
         fileList{end+1} = file;
         if ~quiet
