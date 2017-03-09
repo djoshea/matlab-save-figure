@@ -48,7 +48,7 @@ function fileList = saveFigure(varargin)
 % 
 %   ext : list of extensions to use when name does not have extension already,
 %           default={'pdf', 'png', 'svg'}. 
-%           Options include: 'fig', 'png', 'hires.png', 'svg', 'eps', 'pdf'
+%           Options include: 'fig', 'png', 'svg', 'eps', 'pdf'
 % 
 %   quiet : print status messages [default = true]
 %
@@ -65,18 +65,16 @@ function fileList = saveFigure(varargin)
 %   copyfig : Oliver Woodford
 %   GetFullPath: Jan Simon
 %
-    extListFull = {'fig', 'png', 'hires.png', 'svg', 'eps', 'pdf'};
+    extListFull = {'fig', 'png', 'svg', 'eps', 'pdf'};
     extListDefault = {'fig', 'pdf', 'png'};
 
     p = inputParser;
     p.addOptional('name', '', @(x) ischar(x) || iscellstr(x) || isstruct(x) || isa(x, 'function_handle'));
     p.addOptional('figh', gcf, @ishandle);
-    p.addParameter('fontName', '', @ischar);
     p.addParameter('ext', [], @(x) ischar(x) || iscellstr(x));
     p.addParameter('quiet', true, @islogical);
     p.addParameter('notes', '', @ischar);
     p.addParameter('resolution', 300, @isscalar);
-    p.addParameter('resolutionHiRes', 600, @isscalar);
     
     p.addParameter('painters', [], @(x) isempty(x) || islogical(x)); % set to true to force vector rendering when otherwise not possible
     p.addParameter('upsample', 1, @isscalar); % improve the rendering quality by rendering to a larger SVG canvas then downsampling. especially useful for small markers or figure sizes, set this to 5-10
@@ -88,7 +86,8 @@ function fileList = saveFigure(varargin)
     ext = p.Results.ext;
     quiet = p.Results.quiet;
     resolution = p.Results.resolution;
-    resolutionHiRes = p.Results.resolutionHiRes;
+    
+    hfig.InvertHardcopy = 'off';
     
     if isempty(name)
         name = get(hfig, 'Name');
@@ -197,18 +196,23 @@ function fileList = saveFigure(varargin)
     
     % trick Matlab into rendering everything at higher resolution
     jc = findobjinternal(hfig, '-isa', 'matlab.graphics.primitive.canvas.JavaCanvas', '-depth', 1);
-    origDPI = jc.ScreenPixelsPerInch;
-    if p.Results.upsample > 1
-        dpi = origDPI * p.Results.upsample;
-        if ~isempty(jc)
-%             jc.OpenGL = 'off';
-            jc.ScreenPixelsPerInch = dpi;
-            if exist('AutoAxis', 'class')
-                AutoAxis.updateFigure();
-            end
-        end
+    if isa(jc, 'matlab.graphics.GraphicsPlaceholder')
+        warning('Could not determine screen DPI: JavaCanvas not found');
+        renderDPI = 72;
     else
-        dpi = origDPI;
+        origDPI = jc.ScreenPixelsPerInch;
+        if p.Results.upsample > 1
+            renderDPI = origDPI * p.Results.upsample;
+            if ~isempty(jc)
+    %             jc.OpenGL = 'off';
+                jc.ScreenPixelsPerInch = dpi;
+                if exist('AutoAxis', 'class')
+                    AutoAxis.updateFigure();
+                end
+            end
+        else
+            renderDPI = origDPI;
+        end
     end
     
 %     usePainters = true;
@@ -249,7 +253,7 @@ function fileList = saveFigure(varargin)
         else
             rendArgs = {};
         end
-        print(hfig, rendArgs{:}, sprintf('-r%g', dpi), '-dsvg', file);
+        print(hfig, rendArgs{:}, sprintf('-r%g', resolution), '-dsvg', file);
 %             print(hfig, '-dsvg', '-painters', file);
 
         % now we have to change the svg header to match the size that
@@ -257,7 +261,8 @@ function fileList = saveFigure(varargin)
         % this correctly
         widthStr = sprintf('%.3fcm', figSizeCm(1));
         heightStr = sprintf('%.3fcm', figSizeCm(2));
-        setSvgFileSize(svgFile, widthStr, heightStr, dpi / origDPI);
+        setSvgFileSize(svgFile, widthStr, heightStr, renderDPI / origDPI);
+%         setSvgFileSize(svgFile, widthStr, heightStr, renderDPI / origDPI);
     end
 
     if needPdf  
@@ -344,18 +349,18 @@ function fileList = saveFigure(varargin)
             printmsg('png', file);
         end
         
-        convertPdf(pdfFile, file, false);
+        convertPdf(pdfFile, file);
     end
     
-    if fileInfo.isKey('hires.png')
-        file = fileInfo('hires.png');
-        fileList{end+1} = file;
-        if ~quiet
-            printmsg('hires.png', file);
-        end
-        
-        convertPdf(pdfFile, file, true);
-    end
+%     if fileInfo.isKey('hires.png')
+%         file = fileInfo('hires.png');
+%         fileList{end+1} = file;
+%         if ~quiet
+%             printmsg('hires.png', file);
+%         end
+%         
+%         convertPdf(pdfFile, file, true);
+%     end
     
 %     if fileInfo.isKey('svg') && ~usePainters
 %         file = fileInfo('svg');
@@ -364,7 +369,7 @@ function fileList = saveFigure(varargin)
 %             printmsg('svg', file);
 %         end
 %         
-%         convertPdf(pdfFile, file, true);
+%         convertPdf(pdfFile, file);
 %     end
     
     if fileInfo.isKey('eps')
@@ -374,7 +379,7 @@ function fileList = saveFigure(varargin)
             printmsg('eps', file);
         end
         
-        convertPdf(pdfFile, file, true);
+        convertPdf(pdfFile, file);
     end
 
     % delete temporary files
@@ -460,11 +465,8 @@ function fileList = saveFigure(varargin)
         end
     end
 
-    function convertPdf(pdfFile, file, hires)
+    function convertPdf(pdfFile, file)
         % call imageMagick convert on pdfFile --> file
-        if nargin < 3
-            hires = false;
-        end
 
     %     if ismac
     %         convertPath = '/usr/local/bin/convert';
@@ -484,13 +486,8 @@ function fileList = saveFigure(varargin)
         % clear that path when calling imageMagick to avoid issues
     %     cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -quality 100 -density %d %s -resize %d%% %s', ...
     %         density, escapePathForShell(pdfFile), resize, escapePathForShell(file));
-        if hires
-            cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s -verbose -density %d %s -resample %d %s', ...
-                convertPath, resolutionHiRes, escapePathForShell(pdfFile), resolutionHiRes, escapePathForShell(file));
-        else
-            cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s -verbose -density %d %s -resample %d %s', ...
-                convertPath, resolution, escapePathForShell(pdfFile), resolution, escapePathForShell(file));
-        end
+        cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s -verbose -density %d %s -resample %d %s', ...
+            convertPath, resolution, escapePathForShell(pdfFile), resolution, escapePathForShell(file));
         [status, result] = system(cmd);
 
         if status
@@ -508,13 +505,7 @@ function fileList = saveFigure(varargin)
         [fPath, fName, dotext] = fileparts(file);
         if ~isempty(dotext)
             if strcmp(dotext, '.png')
-                [~, fName2, ext2] = fileparts(fName);
-                if strcmp(ext2, '.hires')
-                    ext = 'hires.png';
-                    fName = fName2;
-                else
-                    ext = 'png';
-                end
+                ext = 'png';
             else
                 ext = dotext(2:end);
             end
