@@ -205,7 +205,7 @@ function fileList = saveFigure(varargin)
             renderDPI = origDPI * p.Results.upsample;
             if ~isempty(jc)
     %             jc.OpenGL = 'off';
-                jc.ScreenPixelsPerInch = dpi;
+                jc.ScreenPixelsPerInch = renderDPI;
                 if exist('AutoAxis', 'class')
                     AutoAxis.updateFigure();
                 end
