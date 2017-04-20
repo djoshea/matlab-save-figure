@@ -78,6 +78,8 @@ function fileList = saveFigure(varargin)
     p.addParameter('resolution', 300, @isscalar);
     p.addParameter('resolutionHiRes', 600, @isscalar);
     
+    p.addParameter('defaultFont', 'Helvetica', @ischar);
+    
     p.addParameter('painters', [], @(x) isempty(x) || islogical(x)); % set to true to force vector rendering when otherwise not possible
     p.addParameter('upsample', 1, @isscalar); % improve the rendering quality by rendering to a larger SVG canvas then downsampling. especially useful for small markers or figure sizes, set this to 5-10
     
@@ -257,7 +259,7 @@ function fileList = saveFigure(varargin)
         % this correctly
         widthStr = sprintf('%.3fcm', figSizeCm(1));
         heightStr = sprintf('%.3fcm', figSizeCm(2));
-        setSvgFileSize(svgFile, widthStr, heightStr, dpi / origDPI);
+        setSvgFileSize(svgFile, widthStr, heightStr, dpi / origDPI, p.Results.defaultFont);
     end
 
     if needPdf  
@@ -384,7 +386,7 @@ function fileList = saveFigure(varargin)
     
     fileList = makecol(fileList);
     
-    function setSvgFileSize(svgFile, widthStr, heightStr, scaleViewBoxBy)
+    function setSvgFileSize(svgFile, widthStr, heightStr, scaleViewBoxBy, fontName)
     % replaces first width="..." and height="..." and adds a viewbox to size
     % the SVG file appropriately for Inkscape processing
 
@@ -403,6 +405,11 @@ function fileList = saveFigure(varargin)
         str = regexprep(str, 'width="\d+"', sprintf('width="%s"', widthStr), 'once');
         str = regexprep(str, 'height="\d+"', sprintf('height="%s" %s', heightStr, viewBoxStr), 'once');
 
+        
+        % replace SansSerif and Dialog with Helvetica
+        str = regexprep(str, sprintf('font-family:''Dialog''', 'font-family:''%s''', fontName));
+        str = regexprep(str, sprintf('font-family:''SansSerif''', 'font-family:''Helvetica''', fontName));
+        
         fid = fopen(svgFile, 'w');
         fprintf(fid, '%s', str);
         fclose(fid);
