@@ -411,8 +411,8 @@ function fileList = saveFigure(varargin)
 
         
         % replace SansSerif and Dialog with Helvetica
-        str = regexprep(str, sprintf('font-family:''Dialog''', 'font-family:''%s''', fontName));
-        str = regexprep(str, sprintf('font-family:''SansSerif''', 'font-family:''Helvetica''', fontName));
+        str = regexprep(str, 'font-family:''Dialog''', sprintf('font-family:''%s''', fontName));
+        str = regexprep(str, 'font-family:''SansSerif''', sprintf('font-family:''%s''', fontName));
         
         fid = fopen(svgFile, 'w');
         fprintf(fid, '%s', str);
