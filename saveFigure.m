@@ -190,6 +190,11 @@ set(hfig, 'Units', 'centimeters');
 pos = hfig.Position;
 figSizeCm = pos(3:4);
 
+try
+    AutoAxis.disableFigure(); % prevent fonts from being changed mid-save
+catch
+end
+
 % prevent font outlining by setting everything to a boring font here
 % these will be patched back to default font in patchSvgFile
 if p.Results.preventOutlinedFonts
@@ -278,7 +283,9 @@ if needSvg
     % this correctly
     widthStr = sprintf('%.3fcm', figSizeCm(1));
     heightStr = sprintf('%.3fcm', figSizeCm(2));
-    patchSvgFile(svgFile, widthStr, heightStr, renderDPI / origDPI, p.Results.defaultFont);
+   
+%     patchSvgFile(svgFile, widthStr, heightStr, renderDPI / origDPI, p.Results.defaultFont);
+    patchSvgFile(svgFile, widthStr, heightStr, 1, p.Results.defaultFont);
 end
 
 if needPdf
