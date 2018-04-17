@@ -197,8 +197,13 @@ if p.Results.preventOutlinedFonts
 end
 
 % check the figure complexity and determine which path to take
-checker = matlab.graphics.internal.PrintVertexChecker.getInstance();
-exceedsLimits = ~checker.exceedsLimits(hfig); %#ok<NASGU>
+% if verLessThan('matlab', '9.4.0')
+%     checker = matlab.graphics.internal.PrintVertexChecker.getInstance();
+%     exceedsLimits = ~checker.exceedsLimits(hfig); %#ok<NASGU>
+% else
+%     checker = matlab.graphics.internal.PrintPaintersChecker.getInstance();
+%     exceedsLimits = ~checker.exceedsVertexLimits(hfig);
+% end
 
 % change normalized units to data units when possible
 % normalized units get messed up when upsampling
