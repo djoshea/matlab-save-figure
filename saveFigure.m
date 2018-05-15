@@ -85,6 +85,8 @@ p.addParameter('preventOutlinedFonts', true, @islogical); % set fonts all to def
 p.addParameter('painters', [], @(x) isempty(x) || islogical(x)); % set to true to force vector rendering when otherwise not possible
 p.addParameter('upsample', 1, @isscalar); % improve the rendering quality by rendering to a larger SVG canvas then downsampling. especially useful for small markers or figure sizes, set this to 5-10
 
+p.addParameter('transparentBackground', false, @islogical); % requires painters to be true
+
 %     p.KeepUnmatched = true;
 p.parse(varargin{:});
 hfig = p.Results.figh;
@@ -243,6 +245,20 @@ end
 needPdf = any(ismember(setdiff(extList, {'fig', 'svg'}), extList));
 needSvg = needPdf || any(ismember(extList, 'svg'));
 
+usePainters = ~isempty(p.Results.painters) && p.Results.painters;
+
+% create transparent background if requested
+if p.Results.transparentBackground
+    assert(usePainters, 'Transparent background requires painters parameter to be set to true');
+    
+    % find all axes
+    hax = findobj(hfig, '-isa', 'matlab.graphics.axis.Axes');
+    
+    setBackground.h = [hfig; hax];
+    setBackground.origColor = arrayfun(@(h) h.Color, setBackground.h, 'UniformOutput', false);
+    set(setBackground.h, 'Color', 'none');
+end
+
 % save svg format first
 if needSvg
     if fileInfo.isKey('svg')
@@ -270,7 +286,7 @@ if needSvg
     drawnow;
     
     % force painters renderer if requested
-    if ~isempty(p.Results.painters) && p.Results.painters
+    if usePainters
         rendArgs = {'-painters'};
     else
         rendArgs = {};
@@ -415,6 +431,19 @@ end
 % delete temporary files
 for tempFile = tempList
     delete(tempFile{1});
+end
+
+% restore backgrounds set
+if p.Results.transparentBackground
+    for iH = 1:numel(setBackground.h)
+        setBackground.h(iH).Color = setBackground.origColor{iH};
+    end
+end
+
+% restore AutoAxis
+try
+    AutoAxis.enableFigure(); % we disabled it above
+catch
 end
 
 fileList = makecol(fileList);
