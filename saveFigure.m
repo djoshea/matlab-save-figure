@@ -69,9 +69,9 @@ extListFull = {'fig', 'png', 'svg', 'eps', 'pdf'};
 extListDefault = {'fig', 'pdf', 'png'};
 
 p = inputParser;
-p.addOptional('name', '', @(x) ischar(x) || iscellstr(x) || isstruct(x) || isa(x, 'function_handle'));
+p.addOptional('name', '', @(x) ischar(x) || isstring(x) || iscellstr(x) || isstruct(x) || isa(x, 'function_handle'));
 p.addOptional('figh', gcf, @ishandle);
-p.addParameter('ext', [], @(x) ischar(x) || iscellstr(x));
+p.addParameter('ext', {}, @(x) ischar(x) || iscellstr(x) || isstring(x));
 p.addParameter('quiet', true, @islogical);
 p.addParameter('notes', '', @ischar);
 p.addParameter('resolution', 300, @isscalar);
@@ -91,7 +91,7 @@ p.addParameter('transparentBackground', false, @islogical); % requires painters 
 p.parse(varargin{:});
 hfig = p.Results.figh;
 name = p.Results.name;
-ext = p.Results.ext;
+ext = cellstr(p.Results.ext);
 quiet = p.Results.quiet;
 resolution = p.Results.resolution;
 
@@ -103,6 +103,14 @@ end
 
 % build a map with .ext = file with ext
 fileInfo = containers.Map('KeyType', 'char', 'ValueType', 'char');
+
+if isstring(name) 
+    if numel(name) > 1
+        name = cellstr(name);
+    else
+        name = char(name);
+    end
+end
 
 % parse name and extensions, build fileInfo map
 if isstruct(name)
@@ -123,11 +131,14 @@ elseif iscell(name) % expect each argument to have extension already
     
 elseif ischar(name) % may or may not have extension
     
-    extFromName = getExtensionFromFile(name);
-    if ismember(extFromName, extListFull)
+    [extsFromName, fileWithEachExt] = getExtensionsFromFile(name);
+    if ~isempty(extsFromName) && any(ismember(extsFromName, extListFull))
         % single file name with extension
         assert(isempty(ext), 'Extension list invalid when name argument already has extension');
-        fileInfo(extFromName) = GetFullPath(name);
+        
+        for iE = 1:numel(extsFromName)
+            fileInfo(extsFromName{iE}) = fileWithEachExt{iE};
+        end
     else
         % single file name with no extension, use extension list
         % (default if not found)
@@ -147,6 +158,10 @@ end
 
 values = fileInfo.values;
 [pathFinal, nameFinal] = fileparts(values{1});
+
+if exist(pathFinal, 'dir') == 0
+    mkdirRecursive(pathFinal);
+end
 
 % save figure notes
 if ~isempty(p.Results.notes)
@@ -575,18 +590,22 @@ function printmsg(ex, file)
 fprintf('Saving %s as %s\n', ex, file);
 end
 
-function [ext, fileSansExt] = getExtensionFromFile(file)
-[fPath, fName, dotext] = fileparts(file);
-if ~isempty(dotext)
-    if strcmp(dotext, '.png')
-        ext = 'png';
+function [exts, fileWithEachExt] = getExtensionsFromFile(file)
+    [fPath, fName, dotext] = fileparts(file);
+    if ~isempty(dotext)
+        % split on + and strip leading dots
+        exts = strsplit(dotext, '+');
+        fileWithEachExt = cell(numel(exts), 1);
+        for iE = 1:numel(exts)
+            if exts{iE}(1) == '.'
+                exts{iE} = exts{iE}(2:end);
+            end
+            fileWithEachExt{iE} = fullfile(fPath, [fName '.' exts{iE}]);
+        end
     else
-        ext = dotext(2:end);
+        exts = {};
+        fileWithEachExt = {};
     end
-else
-    ext = '';
-end
-fileSansExt = fullfile(fPath, fName);
 end
 
 function str = strjoin(strCell, join)
