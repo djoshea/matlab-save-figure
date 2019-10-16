@@ -159,7 +159,7 @@ end
 values = fileInfo.values;
 [pathFinal, nameFinal] = fileparts(values{1});
 
-if exist(pathFinal, 'dir') == 0
+if ~isempty(pathFinal) && exist(pathFinal, 'dir') == 0
     mkdirRecursive(pathFinal);
 end
 
