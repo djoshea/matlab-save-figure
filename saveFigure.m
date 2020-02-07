@@ -137,7 +137,7 @@ elseif ischar(name) % may or may not have extension
         assert(isempty(ext), 'Extension list invalid when name argument already has extension');
         
         for iE = 1:numel(extsFromName)
-            fileInfo(extsFromName{iE}) = fileWithEachExt{iE};
+            fileInfo(extsFromName{iE}) = GetFullPath(fileWithEachExt{iE});
         end
     else
         % single file name with no extension, use extension list
@@ -520,6 +520,7 @@ end
 
 % MATLAB has it's own older version of libtiff.so inside it, so we
 % clear that path when calling imageMagick to avoid issues
+
 cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --export-pdf=%s %s', ...
     inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
 %cmd = sprintf('%s --export-pdf %s %s', inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
