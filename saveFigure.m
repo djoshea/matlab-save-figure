@@ -82,7 +82,7 @@ p.addParameter('resolution', 300, @isscalar);
 % set to override resolution to achieve specific pixel width
 p.addParameter('rasterWidthPixels', [], @(x) isempty(x) || isscalar(x));
 
-p.addParameter('defaultFont', get(0, 'DefaultAxesFontName'), @ischar);
+p.addParameter('exportFont', '', @ischar);
 
 % p.addParameter('preventOutlinedFonts', true, @islogical); % set fonts all to default font to ensure they aren't outlined
 
@@ -98,6 +98,14 @@ name = p.Results.name;
 ext = cellstr(p.Results.ext);
 quiet = p.Results.quiet;
 resolution = p.Results.resolution;
+
+exportFont = p.Results.exportFont;
+if isempty(exportFont)
+    exportFont = getenv('SAVEFIGURE_EXPORT_FONT');
+end
+if isempty(exportFont)
+    exportFont = get(groot, 'DefaultAxesFontName');
+end
 
 hfig.InvertHardcopy = 'off';
 
@@ -321,8 +329,8 @@ if needSvg
     widthStr = sprintf('%.3fcm', figSizeCm(1));
     heightStr = sprintf('%.3fcm', figSizeCm(2));
    
-%     patchSvgFile(svgFile, widthStr, heightStr, renderDPI / origDPI, p.Results.defaultFont);
-    patchSvgFile(svgFile, widthStr, heightStr, 1, p.Results.defaultFont);
+%     patchSvgFile(svgFile, widthStr, heightStr, renderDPI / origDPI, p.Results.exportFont);
+    patchSvgFile(svgFile, widthStr, heightStr, 1, exportFont);
 end
 
 if needPdf
@@ -352,7 +360,7 @@ end
 set(objNormalizedUnits, 'Units', 'normalized');
 
 % if p.Results.preventOutlinedFonts
-%     figSetFonts(hfig, 'FontName', p.Results.defaultFont);
+%     figSetFonts(hfig, 'FontName', p.Results.exportFont);
 % end
 
 figRestoreText(restoreInfo);
@@ -961,12 +969,15 @@ function restoreInfo = figPatchText(varargin)
     hfig = p.Results.hfig;
 
     htext = findobj(hfig, '-property', 'FontName');
-
+    if isempty(htext)
+        restoreInfo = [];
+        return;
+    end
+    
     for iH = numel(htext) : -1 : 1
         h = htext(iH);
         restoreInfo(iH).h = h;
         restoreInfo(iH).FontName = h.FontName;
-        h.FontName = 'SansSerif'; % seem to get better results if we adjust the font first so as to update the extents
         
         if strcmp(h.Type, 'text')
             restoreInfo(iH).HorizontalAlignment = h.HorizontalAlignment;
@@ -978,6 +989,7 @@ function restoreInfo = figPatchText(varargin)
 
             ext_orig = h.Extent;
 
+            h.FontName = 'SansSerif'; % don't change the font until after the extent has been computed
             h.HorizontalAlignment = 'left';
             h.VerticalAlignment = 'top';
             
@@ -988,9 +1000,9 @@ function restoreInfo = figPatchText(varargin)
             h.Position = pos;
             
             h.Units = old_units;
-            
+        else
+            h.FontName = 'SansSerif';
         end
-        
         
     end
 
