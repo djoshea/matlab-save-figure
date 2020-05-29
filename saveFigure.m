@@ -65,6 +65,9 @@ function fileList = saveFigure(varargin)
 %   copyfig : Oliver Woodford
 %   GetFullPath: Jan Simon
 %
+% Recent changes: 
+% 2020 May 28 : fixing issues with misplaced text when font is changed to sans-serif and text wasn't left aligned
+
 extListFull = {'fig', 'png', 'svg', 'eps', 'pdf'};
 extListDefault = {'fig', 'pdf', 'png'};
 
@@ -80,7 +83,8 @@ p.addParameter('resolution', 300, @isscalar);
 p.addParameter('rasterWidthPixels', [], @(x) isempty(x) || isscalar(x));
 
 p.addParameter('defaultFont', get(0, 'DefaultAxesFontName'), @ischar);
-p.addParameter('preventOutlinedFonts', true, @islogical); % set fonts all to default font to ensure they aren't outlined
+
+% p.addParameter('preventOutlinedFonts', true, @islogical); % set fonts all to default font to ensure they aren't outlined
 
 p.addParameter('painters', [], @(x) isempty(x) || islogical(x)); % set to true to force vector rendering when otherwise not possible
 p.addParameter('upsample', 1, @isscalar); % improve the rendering quality by rendering to a larger SVG canvas then downsampling. especially useful for small markers or figure sizes, set this to 5-10
@@ -214,9 +218,11 @@ end
 
 % prevent font outlining by setting everything to a boring font here
 % these will be patched back to default font in patchSvgFile
-if p.Results.preventOutlinedFonts
-    figSetFonts(hfig, 'FontName', 'SansSerif');
-end
+% if p.Results.preventOutlinedFonts
+%     figSetFonts(hfig, 'FontName', 'SansSerif');
+% end
+
+restoreInfo = figPatchText(hfig);
 
 % check the figure complexity and determine which path to take
 % if verLessThan('matlab', '9.4.0')
@@ -345,9 +351,11 @@ if ~isempty(jc)
 end
 set(objNormalizedUnits, 'Units', 'normalized');
 
-if p.Results.preventOutlinedFonts
-    figSetFonts(hfig, 'FontName', p.Results.defaultFont);
-end
+% if p.Results.preventOutlinedFonts
+%     figSetFonts(hfig, 'FontName', p.Results.defaultFont);
+% end
+
+figRestoreText(restoreInfo);
 
 % this path never worked particularly well on Mac with fonts
 %     else
@@ -520,16 +528,15 @@ end
 
 % MATLAB has it's own older version of libtiff.so inside it, so we
 % clear that path when calling imageMagick to avoid issues
-
-cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --export-pdf=%s %s', ...
+cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --export-filename=%s %s', ...
     inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
 %cmd = sprintf('%s --export-pdf %s %s', inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
 [status, result] = system(cmd);
 
 if status
     fprintf('Error converting svg file. Is Inkscape configured correctly?\n');
-    fprintf(result);
-    fprintf('\n');
+    fprintf('%s\n', result);
+    fprintf('Command was:\n%s\n\n', cmd);
 end
 end
 
@@ -550,8 +557,8 @@ cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_L
 
 if status
     fprintf('Error converting svg file. Is Inkscape configured correctly?\n');
-    fprintf(result);
-    fprintf('\n');
+    fprintf('%s\n', result);
+    fprintf('Command was:\n%s\n\n', cmd);
 end
 end
 
@@ -582,8 +589,8 @@ cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s -verbo
 
 if status
     fprintf('Error converting pdf file. Are ImageMagick and Ghostscript installed?\n');
-    fprintf(result);
-    fprintf('\n');
+    fprintf('%s', result);
+    fprintf('Command was:\n%s\n\n', cmd);
 end
 end
 
@@ -920,28 +927,86 @@ function vec = makecol( vec )
     end
 end
 
-function figSetFonts(varargin)
-% figSetFonts(hfig, 'Property', val, ...) or figSetFonts('Property', val, ...)
-%
-% Applies a set of properties to all text objects in figure hfig (defaults
-% to gcf if ommitted).
-%
-% Example: figSetFonts('FontSize', 18);
+% function figSetFonts(varargin)
+% % figSetFonts(hfig, 'Property', val, ...) or figSetFonts('Property', val, ...)
+% %
+% % Applies a set of properties to all text objects in figure hfig (defaults
+% % to gcf if ommitted).
+% %
+% % Example: figSetFonts('FontSize', 18);
+% 
+% p = inputParser;
+% p.addOptional('hfig', gcf, @ishandle);
+% p.KeepUnmatched = true;
+% p.parse(varargin{:});
+% hfig = p.Results.hfig;
+% 
+% hfont = findobj(hfig, '-property', 'FontName');
+% set(hfont, p.Unmatched);
+% 
+% % handle all the rest (Title,
+% htext = findall(hfig, 'Type', 'Text');
+% set(htext, p.Unmatched);
+% end
 
-p = inputParser;
-p.addOptional('hfig', gcf, @ishandle);
-p.KeepUnmatched = true;
-p.parse(varargin{:});
-hfig = p.Results.hfig;
+function restoreInfo = figPatchText(varargin)
+% patches text objects to set:
+% - FontName to SansSerif
+% - HorizontalAlignment to left and VerticalAlignment to top, prerving extent
 
-hfont = findobj(hfig, '-property', 'FontName');
-set(hfont, p.Unmatched);
+    p = inputParser;
+    p.addOptional('hfig', gcf, @ishandle);
+    p.KeepUnmatched = true;
+    p.parse(varargin{:});
+    hfig = p.Results.hfig;
 
-% handle all the rest (Title,
-htext = findall(hfig, 'Type', 'Text');
-set(htext, p.Unmatched);
+    htext = findobj(hfig, '-property', 'FontName');
+
+    for iH = numel(htext) : -1 : 1
+        h = htext(iH);
+        restoreInfo(iH).h = h;
+        restoreInfo(iH).FontName = h.FontName;
+        h.FontName = 'SansSerif'; % seem to get better results if we adjust the font first so as to update the extents
+        
+        if strcmp(h.Type, 'text')
+            restoreInfo(iH).HorizontalAlignment = h.HorizontalAlignment;
+            restoreInfo(iH).VerticalAlignment = h.VerticalAlignment;
+            restoreInfo(iH).Position = h.Position;
+
+            old_units = h.Units;
+            h.Units = 'normalized'; % so we don't have to worry about reverse axis directions
+
+            ext_orig = h.Extent;
+
+            h.HorizontalAlignment = 'left';
+            h.VerticalAlignment = 'top';
+            
+            % check updated extent and adjust position accordingly
+            ext_post = h.Extent;
+            pos = h.Position;
+            pos(1:2) = pos(1:2) + ext_orig(1:2) - ext_post(1:2);
+            h.Position = pos;
+            
+            h.Units = old_units;
+            
+        end
+        
+        
+    end
+
 end
 
+function figRestoreText(restoreInfo)
+    for iH = 1:numel(restoreInfo)
+        r = restoreInfo(iH);
+        h = r.h;
+        h.FontName = r.FontName;
+        
+        if strcmp(h.Type, 'text')
+            h.HorizontalAlignment = r.HorizontalAlignment;
+            h.VerticalAlignment = r.VerticalAlignment;
+            h.Position = r.Position;
+        end
+    end
 
-
-
+end
