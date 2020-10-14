@@ -113,6 +113,13 @@ if isempty(name)
     name = get(hfig, 'Name');
 end
 
+scale = getenv('FIGURE_SIZE_SCALE');
+if isempty(scale)
+    scale = 1;
+else
+    scale = str2double(scale);
+end
+
 % build a map with .ext = file with ext
 fileInfo = containers.Map('KeyType', 'char', 'ValueType', 'char');
 
@@ -218,6 +225,9 @@ set(hfig, 'Units', 'centimeters');
 %     set(hfig, 'PaperPositionMode', 'auto');
 pos = hfig.Position;
 figSizeCm = pos(3:4);
+
+% adjust size by scale
+figSizeCm = figSizeCm / scale;
 
 try
     AutoAxis.disableFigure(); % prevent fonts from being changed mid-save
