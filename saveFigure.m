@@ -140,12 +140,12 @@ if isstruct(name)
     
 elseif iscell(name) % expect each argument to have extension already
     assert(isempty(ext), 'Extension list invalid with cell name argument');
-    [extList] = cellfun(@getExtensionFromFile, name, 'UniformOutput', false);
+    [extList] = cellfun(@getExtensionsFromFile, name, 'UniformOutput', false);
     for iF = 1:length(extList)
-        if ~ismember(extList{iF}, extList)
+        if ~ismember(extList{iF}, extListFull)
             error('Could not extract valid extension from file name %s', name{iF});
         end
-        fileInfo(extList{iF}) = GetFullPath(name{iF});
+        fileInfo(extList{iF}{1}) = GetFullPath(name{iF});
     end
     
 elseif ischar(name) % may or may not have extension
@@ -970,7 +970,7 @@ end
 function restoreInfo = figPatchText(varargin)
 % patches text objects to set:
 % - FontName to SansSerif
-% - HorizontalAlignment to left and VerticalAlignment to top, prerving extent
+% - HorizontalAlignment to left and VerticalAlignment to top, prerving extent (multiline strings are omitted)
 
     p = inputParser;
     p.addOptional('hfig', gcf, @ishandle);
@@ -1000,14 +1000,17 @@ function restoreInfo = figPatchText(varargin)
             ext_orig = h.Extent;
 
             h.FontName = 'SansSerif'; % don't change the font until after the extent has been computed
-            h.HorizontalAlignment = 'left';
-            h.VerticalAlignment = 'top';
             
-            % check updated extent and adjust position accordingly
-            ext_post = h.Extent;
-            pos = h.Position;
-            pos(1:2) = pos(1:2) + ext_orig(1:2) - ext_post(1:2);
-            h.Position = pos;
+            if ~iscell(h.String) % multi-line strings omitted
+                h.HorizontalAlignment = 'left';
+                h.VerticalAlignment = 'top';
+            
+                % check updated extent and adjust position accordingly
+                ext_post = h.Extent;
+                pos = h.Position;
+                pos(1:2) = pos(1:2) + ext_orig(1:2) - ext_post(1:2);
+                h.Position = pos;
+            end
             
             h.Units = old_units;
         else
