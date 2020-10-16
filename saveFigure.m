@@ -91,6 +91,10 @@ p.addParameter('upsample', 1, @isscalar); % improve the rendering quality by ren
 
 p.addParameter('transparentBackground', false, @islogical); % requires painters to be true
 
+p.addParameter('replaceStrokeDashArray_dashed', '', @isstringlike);
+p.addParameter('replaceStrokeDashArray_dotted', '', @isstringlike);
+p.addParameter('replaceStrokeDashArray_dashdot', '', @isstringlike);
+
 %     p.KeepUnmatched = true;
 p.parse(varargin{:});
 hfig = p.Results.figh;
@@ -106,6 +110,15 @@ end
 if isempty(exportFont)
     exportFont = get(groot, 'DefaultAxesFontName');
 end
+exportFont = strtrim(string(exportFont));
+
+% lookup extra fonts to append onto the font-family list for missing glyphs
+% separate commas  
+backupFonts = string(getenv('SAVEFIGURE_FALLBACK_FONTFAMILY'));
+if backupFonts == ""
+    backupFonts = "Helvetica,sans-serif";
+end
+exportFontFamily = [exportFont; strtrim(strsplit(backupFonts, ','))'];
 
 hfig.InvertHardcopy = 'off';
 
@@ -119,6 +132,10 @@ if isempty(scale)
 else
     scale = str2double(scale);
 end
+
+patchSvgArgs = {'replaceStrokeDashArray_dashed', p.Results.replaceStrokeDashArray_dashed, ...
+    'replaceStrokeDashArray_dotted', p.Results.replaceStrokeDashArray_dotted, ...
+    'replaceStrokeDashArray_dashdot', p.Results.replaceStrokeDashArray_dashdot};
 
 % build a map with .ext = file with ext
 fileInfo = containers.Map('KeyType', 'char', 'ValueType', 'char');
@@ -340,7 +357,7 @@ if needSvg
     heightStr = sprintf('%.3fcm', figSizeCm(2));
    
 %     patchSvgFile(svgFile, widthStr, heightStr, renderDPI / origDPI, p.Results.exportFont);
-    patchSvgFile(svgFile, widthStr, heightStr, 1, exportFont);
+    patchSvgFile(svgFile, widthStr, heightStr, 1, exportFontFamily, patchSvgArgs{:});
 end
 
 if needPdf
@@ -491,7 +508,16 @@ fileList = makecol(fileList);
 
 end
 
-function patchSvgFile(svgFile, widthStr, heightStr, scaleViewBoxBy, fontName)
+function patchSvgFile(svgFile, widthStr, heightStr, scaleViewBoxBy, fontName, varargin)
+p = inputParser();
+p.addParameter('replaceStrokeDashArray_dashed', '', @isstringlike);
+p.addParameter('replaceStrokeDashArray_dotted', '', @isstringlike);
+p.addParameter('replaceStrokeDashArray_dashdot', '', @isstringlike);
+p.parse(varargin{:});
+replaceStrokeDashArray_dashed = string(p.Results.replaceStrokeDashArray_dashed);
+replaceStrokeDashArray_dotted = string(p.Results.replaceStrokeDashArray_dotted);
+replaceStrokeDashArray_dashdot = string(p.Results.replaceStrokeDashArray_dashdot);
+
 % 1. replaces first width="..." and height="..." and adds a viewbox to size
 %    the SVG file appropriately for Inkscape processing
 % 2. adds a small stroke to the outside of patch objects to hide white
@@ -512,11 +538,19 @@ viewBoxStr = sprintf('viewBox="0 0 %g %g"', widthPx * scaleViewBoxBy, heightPx *
 str = regexprep(str, 'width="\d+"', sprintf('width="%s"', widthStr), 'once');
 str = regexprep(str, 'height="\d+"', sprintf('height="%s" %s', heightStr, viewBoxStr), 'once');
 
-
+fontName = string(fontName);
+fontFamilyString = "";
+for iF = 1:numel(fontName)
+    fontFamilyString = fontFamilyString + "'" + fontName(iF) + "'";
+    if iF < numel(fontName)
+        fontFamilyString = fontFamilyString + ", ";
+    end
+end
+    
 % replace SansSerif and Dialog with Helvetica
-str = regexprep(str, 'font-family:''Dialog''', sprintf('font-family:''%s''', fontName));
-str = regexprep(str, 'font-family:''SansSerif''', sprintf('font-family:''%s''', fontName));
-str = regexprep(str, 'font-family:sans-serif', sprintf('font-family:''%s''', fontName));
+str = regexprep(str, 'font-family:''Dialog''', sprintf('font-family: %s', fontFamilyString));
+str = regexprep(str, 'font-family:''SansSerif''', sprintf('font-family: %s', fontFamilyString));
+str = regexprep(str, 'font-family:sans-serif', sprintf('font-family: %s', fontFamilyString));
 
 % add a small stroke to paths with no stroke to hide rendering
 % issues
@@ -524,6 +558,27 @@ str = regexprep(str, '(<path [^/]* style="fill:rgb)(\([0-9,]+\))(;[^/]*)stroke:n
 
 % make sure images aren't blurred
 str = regexprep(str, '(<image [^>]*style=")([^>]*>)', '$1image-rendering: pixelated !important; $2');
+
+% replace stroke-dasharray lines corresponding to dashed lines, assumed to be 10,6 
+if replaceStrokeDashArray_dashed ~= ""
+    str = regexprep(str, 'stroke-dasharray:10,6', sprintf('stroke-dasharray:%s', replaceStrokeDashArray_dashed));
+end
+
+% replace stroke-dasharray lines corresponding to dashed lines, typically 1,3
+if replaceStrokeDashArray_dotted ~= ""
+    str = regexprep(str, 'stroke-dasharray:1,3', sprintf('stroke-dasharray:%s', replaceStrokeDashArray_dotted));
+end
+
+% replace stroke-dasharray lines corresponding to dashed lines, typically 8,3,2,3
+if replaceStrokeDashArray_dashdot ~= ""    
+    str = regexprep(str, 'stroke-dasharray:8,3,2,3', sprintf('stroke-dasharray:%s', replaceStrokeDashArray_dashdot));
+end
+
+%replace escaped unicode codepoints of the form SUB####SUB where SUB is char(26) and #### is the numeric codepoint
+% replace with an html escape sequence
+SUB = char(26);
+str = regexprep(str, [SUB, '(\d+)', SUB], '&#$1;');
+str = regexprep(str, SUB, ''); % needed because there may be a <glyph> tag containing a SUB character
 
 fid = fopen(svgFile, 'w');
 fprintf(fid, '%s', str);
@@ -969,8 +1024,9 @@ end
 
 function restoreInfo = figPatchText(varargin)
 % patches text objects to set:
-% - FontName to SansSerif
+% - FontName to SansSerif (causes outlined text otherwise)
 % - HorizontalAlignment to left and VerticalAlignment to top, prerving extent (multiline strings are omitted)
+% - Replace unicode codepoints with a placeholder (causes outlined text otherwise)
 
     p = inputParser;
     p.addOptional('hfig', gcf, @ishandle);
@@ -978,7 +1034,8 @@ function restoreInfo = figPatchText(varargin)
     p.parse(varargin{:});
     hfig = p.Results.hfig;
 
-    htext = findobj(hfig, '-property', 'FontName');
+    htext_visible = findobj(hfig, '-property', 'FontName');
+    htext = findall(hfig, '-property', 'FontName');
     if isempty(htext)
         restoreInfo = [];
         return;
@@ -986,33 +1043,57 @@ function restoreInfo = figPatchText(varargin)
     
     for iH = numel(htext) : -1 : 1
         h = htext(iH);
-        restoreInfo(iH).h = h;
-        restoreInfo(iH).FontName = h.FontName;
+        restoreInfo{iH}.h = h;
+        isvisible = ismember(h, htext_visible);
+        
+        % only replace the font name and fix position if its visible (excludes xlabel, ylabel, title, subtitle)
+        if isvisible
+            restoreInfo{iH}.FontName = h.FontName;
+
+            if strcmp(h.Type, 'text')
+                restoreInfo{iH}.HorizontalAlignment = h.HorizontalAlignment;
+                restoreInfo{iH}.VerticalAlignment = h.VerticalAlignment;
+                restoreInfo{iH}.Position = h.Position;
+
+                old_units = h.Units;
+                h.Units = 'normalized'; % so we don't have to worry about reverse axis directions
+
+                ext_orig = h.Extent;
+
+                h.FontName = 'SansSerif'; % don't change the font until after the extent has been computed
+
+                if ~iscell(h.String) % multi-line strings omitted
+                    h.HorizontalAlignment = 'left';
+                    h.VerticalAlignment = 'top';
+
+                    % check updated extent and adjust position accordingly
+                    ext_post = h.Extent;
+                    pos = h.Position;
+                    pos(1:2) = pos(1:2) + ext_orig(1:2) - ext_post(1:2);
+                    h.Position = pos;
+                end
+
+                h.Units = old_units;
+            end
+        end
         
         if strcmp(h.Type, 'text')
-            restoreInfo(iH).HorizontalAlignment = h.HorizontalAlignment;
-            restoreInfo(iH).VerticalAlignment = h.VerticalAlignment;
-            restoreInfo(iH).Position = h.Position;
-
-            old_units = h.Units;
-            h.Units = 'normalized'; % so we don't have to worry about reverse axis directions
-
-            ext_orig = h.Extent;
-
-            h.FontName = 'SansSerif'; % don't change the font until after the extent has been computed
-            
-            if ~iscell(h.String) % multi-line strings omitted
-                h.HorizontalAlignment = 'left';
-                h.VerticalAlignment = 'top';
-            
-                % check updated extent and adjust position accordingly
-                ext_post = h.Extent;
-                pos = h.Position;
-                pos(1:2) = pos(1:2) + ext_orig(1:2) - ext_post(1:2);
-                h.Position = pos;
+            % replace problematic characters that lead to text being outlined
+            % wrap them in SUB (codepoint 26 in utf-8) 
+            % so codepoint 8357 would become SUB8357SUB where SUB is replaced by the actual char(26)
+            strcodes = uint16(char(h.String));
+            if any(strcodes > 255)
+                restoreInfo{iH}.String = h.String;
+                SUB = uint16(26);
+                
+                while true
+                    idx = find(strcodes > 255, 1, 'first');
+                    if isempty(idx), break; end
+                    strcodes = [strcodes(1:idx-1), SUB, uint16(num2str(strcodes(idx))), SUB, strcodes(idx+1:end)];
+                end
+                
+                h.String = char(strcodes);
             end
-            
-            h.Units = old_units;
         else
             h.FontName = 'SansSerif';
         end
@@ -1023,15 +1104,26 @@ end
 
 function figRestoreText(restoreInfo)
     for iH = 1:numel(restoreInfo)
-        r = restoreInfo(iH);
+        r = restoreInfo{iH};
         h = r.h;
-        h.FontName = r.FontName;
         
-        if strcmp(h.Type, 'text')
+        if isfield(r, 'FontName')
+            h.FontName = r.FontName;
+        end
+        
+        if isfield(r, 'HorizontalAlignment')
             h.HorizontalAlignment = r.HorizontalAlignment;
+        end
+        if isfield(r, 'VerticalAlignment')
             h.VerticalAlignment = r.VerticalAlignment;
+        end
+        if isfield(r, 'Position')
             h.Position = r.Position;
         end
+        if isfield(r, 'String')
+            h.String = r.String;
+        end
+        
     end
 
 end
