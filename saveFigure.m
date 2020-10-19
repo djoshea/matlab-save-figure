@@ -84,7 +84,7 @@ p.addParameter('rasterWidthPixels', [], @(x) isempty(x) || isscalar(x));
 
 p.addParameter('exportFont', '', @ischar);
 
-% p.addParameter('preventOutlinedFonts', true, @islogical); % set fonts all to default font to ensure they aren't outlined
+p.addParameter('escapeText', true, @islogical); % escape special characters in hopes of preventing text from being outlined, set to false if there are weird numbers appearing (because text was outlined anyway)
 
 p.addParameter('painters', [], @(x) isempty(x) || islogical(x)); % set to true to force vector rendering when otherwise not possible
 p.addParameter('upsample', 1, @isscalar); % improve the rendering quality by rendering to a larger SVG canvas then downsampling. especially useful for small markers or figure sizes, set this to 5-10
@@ -120,6 +120,7 @@ if backupFonts == ""
 end
 exportFontFamily = [exportFont; strtrim(strsplit(backupFonts, ','))'];
 
+oldInvertHardcopy = hfig.InvertHardcopy;
 hfig.InvertHardcopy = 'off';
 
 if isempty(name)
@@ -251,13 +252,15 @@ try
 catch
 end
 
+savedFigLims = figFreezeLims(hfig);
+
 % prevent font outlining by setting everything to a boring font here
 % these will be patched back to default font in patchSvgFile
 % if p.Results.preventOutlinedFonts
 %     figSetFonts(hfig, 'FontName', 'SansSerif');
 % end
 
-restoreInfo = figPatchText(hfig);
+restoreInfo = figPatchText(hfig, 'escapeText', p.Results.escapeText);
 
 % check the figure complexity and determine which path to take
 % if verLessThan('matlab', '9.4.0')
@@ -278,7 +281,7 @@ set(objNormalizedUnits, 'Units', 'data');
 jc = findobjinternal(hfig, '-isa', 'matlab.graphics.primitive.canvas.JavaCanvas', '-depth', 1);
 if isa(jc, 'matlab.graphics.GraphicsPlaceholder')
     warning('Could not determine screen DPI: JavaCanvas not found');
-    renderDPI = 72;
+    renderDPI = 72; %#ok<NASGU>
 else
     origDPI = jc.ScreenPixelsPerInch;
     if p.Results.upsample > 1
@@ -291,12 +294,10 @@ else
             end
         end
     else
-        renderDPI = origDPI;
+        renderDPI = origDPI; %#ok<NASGU>
     end
 end
 
-%     usePainters = true;
-%     if usePainters
 % start with svg format, convert to pdf, then to other formats
 needPdf = any(ismember(setdiff(extList, {'fig', 'svg'}), extList));
 needSvg = needPdf || any(ismember(extList, 'svg'));
@@ -332,8 +333,7 @@ if needSvg
     
     svgFile = file;
     
-    % use Matlab's built in svg engine (from Batik Graphics2D for
-    % java)
+    % use Matlab's built in svg engine (from Batik Graphics2D for java)
     set(hfig,'Units','pixels');   % All data in the svg-file is saved in pixels
     %             set(hfig, 'Position', round(get(hfig, 'Position')));
     % we specify the resolution because complicated figures will
@@ -347,8 +347,7 @@ if needSvg
     else
         rendArgs = {};
     end
-    print(hfig, rendArgs{:}, sprintf('-r%g', resolution), '-dsvg', file);
-    %             print(hfig, '-dsvg', '-painters', file);
+    print(hfig, rendArgs{:}, '-dsvg', file);
     
     % now we have to change the svg header to match the size that
     % we want the output to be because Inkscape doesn't determine
@@ -386,60 +385,24 @@ if ~isempty(jc)
 end
 set(objNormalizedUnits, 'Units', 'normalized');
 
-% if p.Results.preventOutlinedFonts
-%     figSetFonts(hfig, 'FontName', p.Results.exportFont);
-% end
-
 figRestoreText(restoreInfo);
+figUnfreezeLims(hfig, savedFigLims);
 
-% this path never worked particularly well on Mac with fonts
-%     else
-%         % save to eps, then convert to pdf
-%         needPdf = any(ismember(setdiff(extList, {'fig', 'eps'}), extList));
-%         needEps = needPdf || any(ismember(extList, 'eps'));
-%
-%         if needEps
-%             if fileInfo.isKey('eps')
-%                 % use actual file name
-%                 file = fileInfo('eps');
-%                 fileList{end+1} = file;
-%                 if ~quiet
-%                     printmsg('pdf', file);
-%                 end
-%             else
-%                 % use a temp file name
-%                 file = [tempname '.eps'];
-%                 tempList{end+1} = file;
-%             end
-%             if ~quiet
-%                 printmsg('eps', file);
-%             end
-%
-%             epsFile = file;
-%
-% %             print(hfig, sprintf('-r%d', resolution), '-depsc', file);
-%             print2eps(file, hfig, struct('fontswap', false), sprintf('-r%d', resolution));
-%         end
-%
-%         if needPdf
-%             if fileInfo.isKey('pdf')
-%                 % use actual file name
-%                 file = fileInfo('pdf');
-%                 fileList{end+1} = file;
-%                 if ~quiet
-%                     printmsg('pdf', file);
-%                 end
-%             else
-%                 % use a temp file name
-%                 file = [tempname '.pdf'];
-%                 tempList{end+1} = file;
-%             end
-%
-%             % convert to pdf using inkscape
-%             pdfFile = file;
-%             convertEpsToPdf(epsFile, pdfFile);
-%         end
-%     end
+hfig.InvertHardcopy = oldInvertHardcopy;
+
+% restore backgrounds set
+if p.Results.transparentBackground
+    for iH = 1:numel(setBackground.h)
+        setBackground.h(iH).Color = setBackground.origColor{iH};
+    end
+end
+
+% restore AutoAxis
+try
+    AutoAxis.enableFigure(); % we disabled it above
+catch
+end
+
 
 if fileInfo.isKey('png')
     file = fileInfo('png');
@@ -456,26 +419,6 @@ if fileInfo.isKey('png')
     convertPdf(pdfFile, file, resolution);
 end
 
-%     if fileInfo.isKey('hires.png')
-%         file = fileInfo('hires.png');
-%         fileList{end+1} = file;
-%         if ~quiet
-%             printmsg('hires.png', file);
-%         end
-%
-%         convertPdf(pdfFile, file, true);
-%     end
-
-%     if fileInfo.isKey('svg') && ~usePainters
-%         file = fileInfo('svg');
-%         fileList{end+1} = file;
-%         if ~quiet
-%             printmsg('svg', file);
-%         end
-%
-%         convertPdf(pdfFile, file);
-%     end
-
 if fileInfo.isKey('eps')
     file = fileInfo('eps');
     fileList{end+1} = file;
@@ -489,19 +432,6 @@ end
 % delete temporary files
 for tempFile = tempList
     delete(tempFile{1});
-end
-
-% restore backgrounds set
-if p.Results.transparentBackground
-    for iH = 1:numel(setBackground.h)
-        setBackground.h(iH).Color = setBackground.origColor{iH};
-    end
-end
-
-% restore AutoAxis
-try
-    AutoAxis.enableFigure(); % we disabled it above
-catch
 end
 
 fileList = makecol(fileList);
@@ -613,27 +543,27 @@ if status
 end
 end
 
-function convertEpsToPdf(epsFile, pdfFile)
-% use Inkscape to convert pdf
-if ismac
-    epsToPdfPath = '/Library/TeX/texbin/epstopdf';
-else
-    epsToPdfPath = 'epstopdf';
-end
-
-% MATLAB has it's own older version of libtiff.so inside it, so we
-% clear that path when calling imageMagick to avoid issues
-cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --res=%d -o=%s %s', ...
-    epsToPdfPath, resolution, escapePathForShell(pdfFile), escapePathForShell(epsFile));
-%cmd = sprintf('%s --export-pdf %s %s', inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
-[status, result] = system(cmd);
-
-if status
-    fprintf('Error converting svg file. Is Inkscape configured correctly?\n');
-    fprintf('%s\n', result);
-    fprintf('Command was:\n%s\n\n', cmd);
-end
-end
+% function convertEpsToPdf(epsFile, pdfFile)
+% % use Inkscape to convert pdf
+% if ismac
+%     epsToPdfPath = '/Library/TeX/texbin/epstopdf';
+% else
+%     epsToPdfPath = 'epstopdf';
+% end
+% 
+% % MATLAB has it's own older version of libtiff.so inside it, so we
+% % clear that path when calling imageMagick to avoid issues
+% cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --res=%d -o=%s %s', ...
+%     epsToPdfPath, resolution, escapePathForShell(pdfFile), escapePathForShell(epsFile));
+% %cmd = sprintf('%s --export-pdf %s %s', inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
+% [status, result] = system(cmd);
+% 
+% if status
+%     fprintf('Error converting svg file. Is Inkscape configured correctly?\n');
+%     fprintf('%s\n', result);
+%     fprintf('Command was:\n%s\n\n', cmd);
+% end
+% end
 
 function convertPdf(pdfFile, file, resolution)
 % call imageMagick convert on pdfFile --> file
@@ -1030,6 +960,7 @@ function restoreInfo = figPatchText(varargin)
 
     p = inputParser;
     p.addOptional('hfig', gcf, @ishandle);
+    p.addOptional('escapeText', true, @islogical);
     p.KeepUnmatched = true;
     p.parse(varargin{:});
     hfig = p.Results.hfig;
@@ -1077,7 +1008,7 @@ function restoreInfo = figPatchText(varargin)
             end
         end
         
-        if strcmp(h.Type, 'text')
+        if strcmp(h.Type, 'text') && p.Results.escapeText
             % replace problematic characters that lead to text being outlined
             % wrap them in SUB (codepoint 26 in utf-8) 
             % so codepoint 8357 would become SUB8357SUB where SUB is replaced by the actual char(26)
@@ -1126,4 +1057,62 @@ function figRestoreText(restoreInfo)
         
     end
 
+end
+
+function saved = figFreezeLims(fig)
+    % this code is copied from export_fig:
+    %  https://github.com/altmany/export_fig:
+    % Copyright (C) Oliver Woodford 2008-2014, Yair Altman 2015-
+    
+    % MATLAB "feature": axes limits and tick marks can change when printing
+    Hlims = findall(fig, 'Type', 'axes');
+    % Record the old axes limit and tick modes
+    saved.Xlims = make_cell(get(Hlims, 'XLimMode'));
+    saved.Ylims = make_cell(get(Hlims, 'YLimMode'));
+    saved.Zlims = make_cell(get(Hlims, 'ZLimMode'));
+    saved.Xtick = make_cell(get(Hlims, 'XTickMode'));
+    saved.Ytick = make_cell(get(Hlims, 'YTickMode'));
+    saved.Ztick = make_cell(get(Hlims, 'ZTickMode'));
+    saved.Xlabel = make_cell(get(Hlims, 'XTickLabelMode')); 
+    saved.Ylabel = make_cell(get(Hlims, 'YTickLabelMode')); 
+    saved.Zlabel = make_cell(get(Hlims, 'ZTickLabelMode')); 
+
+    % Set all axes limit and tick modes to manual, so the limits and ticks can't change
+    % Fix Matlab R2014b bug (issue #34): plot markers are not displayed when ZLimMode='manual'
+    set(Hlims, 'XLimMode', 'manual', 'YLimMode', 'manual');
+    set_tick_mode(Hlims, 'X');
+    set_tick_mode(Hlims, 'Y');
+    set(Hlims,'ZLimMode', 'manual');
+    set_tick_mode(Hlims, 'Z');
+    
+    saved.Hlims = Hlims;
+    
+    function A = make_cell(A)
+        if ~iscell(A)
+            A = {A};
+        end
+    end
+
+    function set_tick_mode(Hlims, ax)
+        % Set the tick mode of linear axes to manual
+        % Leave log axes alone as these are tricky
+        M = get(Hlims, [ax 'Scale']);
+        if ~iscell(M)
+            M = {M};
+        end
+        M = cellfun(@(c) strcmp(c, 'linear'), M);
+        set(Hlims(M), [ax 'TickMode'], 'manual');
+        %set(Hlims(M), [ax 'TickLabelMode'], 'manual');  % this hides exponent label in HG2!
+    end
+end
+
+function figUnfreezeLims(fig, saved) %#ok<INUSL>
+    Hlims = saved.Hlims;
+
+    % Reset the axes limit and tick modes
+    for a = 1:numel(Hlims)
+        set(Hlims(a), 'XLimMode', saved.Xlims{a}, 'YLimMode', saved.Ylims{a}, 'ZLimMode', saved.Zlims{a},... 
+                      'XTickMode', saved.Xtick{a}, 'YTickMode', saved.Ytick{a}, 'ZTickMode', saved.Ztick{a},...
+                      'XTickLabelMode', saved.Xlabel{a}, 'YTickLabelMode', saved.Ylabel{a}, 'ZTickLabelMode', saved.Zlabel{a}); 
+    end
 end
