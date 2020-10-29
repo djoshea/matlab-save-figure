@@ -274,7 +274,7 @@ restoreInfo = figPatchText(hfig, 'escapeText', p.Results.escapeText);
 % change normalized units to data units when possible
 % normalized units get messed up when upsampling
 axh = findall(hfig, 'Type', 'Axes');
-objNormalizedUnits = findall(axh, 'Units', 'normalized', '-not', 'Type', 'Axes');
+objNormalizedUnits = findall(axh, 'Units', 'normalized', '-not', 'Type', 'Axes', '-not', 'Type', 'arrowshape');
 set(objNormalizedUnits, 'Units', 'data');
 
 % trick Matlab into rendering everything at higher resolution
