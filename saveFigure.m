@@ -102,6 +102,7 @@ name = p.Results.name;
 ext = cellstr(p.Results.ext);
 quiet = p.Results.quiet;
 resolution = p.Results.resolution;
+usePainters = ~isempty(p.Results.painters) && p.Results.painters;
 
 exportFont = p.Results.exportFont;
 if isempty(exportFont)
@@ -136,7 +137,8 @@ end
 
 patchSvgArgs = {'replaceStrokeDashArray_dashed', p.Results.replaceStrokeDashArray_dashed, ...
     'replaceStrokeDashArray_dotted', p.Results.replaceStrokeDashArray_dotted, ...
-    'replaceStrokeDashArray_dashdot', p.Results.replaceStrokeDashArray_dashdot};
+    'replaceStrokeDashArray_dashdot', p.Results.replaceStrokeDashArray_dashdot, ...
+    'pixelated', usePainters};
 
 % build a map with .ext = file with ext
 fileInfo = containers.Map('KeyType', 'char', 'ValueType', 'char');
@@ -302,8 +304,6 @@ end
 needPdf = any(ismember(setdiff(extList, {'fig', 'svg'}), extList));
 needSvg = needPdf || any(ismember(extList, 'svg'));
 
-usePainters = ~isempty(p.Results.painters) && p.Results.painters;
-
 % create transparent background if requested
 if p.Results.transparentBackground
     assert(usePainters, 'Transparent background requires painters parameter to be set to true');
@@ -344,10 +344,12 @@ if needSvg
     % force painters renderer if requested
     if usePainters
         rendArgs = {'-painters'};
+        resArgs = {};
     else
         rendArgs = {};
+        resArgs = {sprintf('-r%.0f', resolution)};
     end
-    print(hfig, rendArgs{:}, '-dsvg', file);
+    print(hfig, rendArgs{:}, '-dsvg', resArgs{:}, file);
     
     % now we have to change the svg header to match the size that
     % we want the output to be because Inkscape doesn't determine
@@ -443,6 +445,7 @@ p = inputParser();
 p.addParameter('replaceStrokeDashArray_dashed', '', @isstringlike);
 p.addParameter('replaceStrokeDashArray_dotted', '', @isstringlike);
 p.addParameter('replaceStrokeDashArray_dashdot', '', @isstringlike);
+p.addParameter('pixelated', true, @islogical);
 p.parse(varargin{:});
 replaceStrokeDashArray_dashed = string(p.Results.replaceStrokeDashArray_dashed);
 replaceStrokeDashArray_dotted = string(p.Results.replaceStrokeDashArray_dotted);
@@ -487,7 +490,9 @@ str = regexprep(str, 'font-family:sans-serif', sprintf('font-family: %s', fontFa
 str = regexprep(str, '(<path [^/]* style="fill:rgb)(\([0-9,]+\))(;[^/]*)stroke:none;', '$1$2$3stroke:rgb$2; stroke-width:0.1;');
 
 % make sure images aren't blurred
-str = regexprep(str, '(<image [^>]*style=")([^>]*>)', '$1image-rendering: pixelated !important; $2');
+if p.Results.pixelated
+    str = regexprep(str, '(<image [^>]*style=")([^>]*>)', '$1image-rendering: pixelated !important; $2');
+end
 
 % replace stroke-dasharray lines corresponding to dashed lines, assumed to be 10,6 
 if replaceStrokeDashArray_dashed ~= ""
@@ -978,7 +983,7 @@ function restoreInfo = figPatchText(varargin)
         isvisible = ismember(h, htext_visible);
         
         % only replace the font name and fix position if its visible (excludes xlabel, ylabel, title, subtitle)
-        if isvisible
+        if isvisible % || true
             restoreInfo{iH}.FontName = h.FontName;
 
             if strcmp(h.Type, 'text')
