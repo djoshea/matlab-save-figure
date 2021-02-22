@@ -970,23 +970,29 @@ function restoreInfo = figPatchText(varargin)
     p.parse(varargin{:});
     hfig = p.Results.hfig;
 
-    htext_visible = findobj(hfig, '-property', 'FontName');
+%     htext_visible = findobj(hfig, '-property', 'FontName');
     htext = findall(hfig, '-property', 'FontName');
     if isempty(htext)
         restoreInfo = [];
         return;
     end
     
+    escapeText = p.Results.escapeText;
+    
     for iH = numel(htext) : -1 : 1
         h = htext(iH);
         restoreInfo{iH}.h = h;
-        isvisible = ismember(h, htext_visible);
+%         isvisible = ismember(h, htext_visible);
         
-        % only replace the font name and fix position if its visible (excludes xlabel, ylabel, title, subtitle)
-        if isvisible % || true
+        % check if xlabel, ylabel, title, subtitle
+        istitle = isa(h.Parent, 'matlab.graphics.axis.Axes') && ...
+            ( isequal(h, h.Parent.Title) || isequal(h, h.Parent.Subtitle) );
+        
+        % only replace the font name and fix position if its visible (excludes title, subtitle)
+        if ~istitle
             restoreInfo{iH}.FontName = h.FontName;
 
-            if strcmp(h.Type, 'text')
+            if strcmp(h.Type, 'text') && escapeText
                 restoreInfo{iH}.HorizontalAlignment = h.HorizontalAlignment;
                 restoreInfo{iH}.VerticalAlignment = h.VerticalAlignment;
                 restoreInfo{iH}.Position = h.Position;
@@ -1013,7 +1019,7 @@ function restoreInfo = figPatchText(varargin)
             end
         end
         
-        if strcmp(h.Type, 'text') && p.Results.escapeText
+        if strcmp(h.Type, 'text') && escapeText
             % replace problematic characters that lead to text being outlined
             % wrap them in SUB (codepoint 26 in utf-8) 
             % so codepoint 8357 would become SUB8357SUB where SUB is replaced by the actual char(26)
