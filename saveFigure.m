@@ -82,6 +82,8 @@ p.addParameter('resolution', 300, @isscalar);
 % set to override resolution to achieve specific pixel width
 p.addParameter('rasterWidthPixels', [], @(x) isempty(x) || isscalar(x));
 
+p.addParameter('replaceFonts', true, @islogical);
+
 p.addParameter('exportFont', '', @ischar);
 
 p.addParameter('escapeText', true, @islogical); % escape special characters in hopes of preventing text from being outlined, set to false if there are weird numbers appearing (because text was outlined anyway)
@@ -138,7 +140,9 @@ end
 patchSvgArgs = {'replaceStrokeDashArray_dashed', p.Results.replaceStrokeDashArray_dashed, ...
     'replaceStrokeDashArray_dotted', p.Results.replaceStrokeDashArray_dotted, ...
     'replaceStrokeDashArray_dashdot', p.Results.replaceStrokeDashArray_dashdot, ...
-    'pixelated', usePainters};
+    'pixelated', usePainters, ...
+    'replaceFonts', p.Results.replaceFonts, ...
+    'escapeText', p.Results.escapeText};
 
 % build a map with .ext = file with ext
 fileInfo = containers.Map('KeyType', 'char', 'ValueType', 'char');
@@ -262,7 +266,7 @@ savedFigLims = figFreezeLims(hfig);
 %     figSetFonts(hfig, 'FontName', 'SansSerif');
 % end
 
-restoreInfo = figPatchText(hfig, 'escapeText', p.Results.escapeText);
+restoreInfo = figPatchText(hfig, 'escapeText', p.Results.escapeText, 'replaceFonts', p.Results.replaceFonts);
 
 % check the figure complexity and determine which path to take
 % if verLessThan('matlab', '9.4.0')
@@ -442,6 +446,8 @@ end
 
 function patchSvgFile(svgFile, widthStr, heightStr, scaleViewBoxBy, fontName, varargin)
 p = inputParser();
+p.addParameter('replaceFonts', true, @islogical);
+p.addParameter('escapeText', true, @islogical);
 p.addParameter('replaceStrokeDashArray_dashed', '', @isstringlike);
 p.addParameter('replaceStrokeDashArray_dotted', '', @isstringlike);
 p.addParameter('replaceStrokeDashArray_dashdot', '', @isstringlike);
@@ -471,19 +477,24 @@ viewBoxStr = sprintf('viewBox="0 0 %g %g"', widthPx * scaleViewBoxBy, heightPx *
 str = regexprep(str, 'width="\d+"', sprintf('width="%s"', widthStr), 'once');
 str = regexprep(str, 'height="\d+"', sprintf('height="%s" %s', heightStr, viewBoxStr), 'once');
 
-fontName = string(fontName);
-fontFamilyString = "";
-for iF = 1:numel(fontName)
-    fontFamilyString = fontFamilyString + "'" + fontName(iF) + "'";
-    if iF < numel(fontName)
-        fontFamilyString = fontFamilyString + ", ";
+replaceFonts = p.Results.replaceFonts;
+escapeText = p.Results.escapeText;
+
+if replaceFonts
+    fontName = string(fontName);
+    fontFamilyString = "";
+    for iF = 1:numel(fontName)
+        fontFamilyString = fontFamilyString + "'" + fontName(iF) + "'";
+        if iF < numel(fontName)
+            fontFamilyString = fontFamilyString + ", ";
+        end
     end
+        
+    % replace SansSerif and Dialog with Helvetica
+    str = regexprep(str, 'font-family:''Dialog''', sprintf('font-family: %s', fontFamilyString));
+    str = regexprep(str, 'font-family:''SansSerif''', sprintf('font-family: %s', fontFamilyString));
+    str = regexprep(str, 'font-family:sans-serif', sprintf('font-family: %s', fontFamilyString));
 end
-    
-% replace SansSerif and Dialog with Helvetica
-str = regexprep(str, 'font-family:''Dialog''', sprintf('font-family: %s', fontFamilyString));
-str = regexprep(str, 'font-family:''SansSerif''', sprintf('font-family: %s', fontFamilyString));
-str = regexprep(str, 'font-family:sans-serif', sprintf('font-family: %s', fontFamilyString));
 
 % add a small stroke to paths with no stroke to hide rendering
 % issues
@@ -509,11 +520,13 @@ if replaceStrokeDashArray_dashdot ~= ""
     str = regexprep(str, 'stroke-dasharray:8,3,2,3', sprintf('stroke-dasharray:%s', replaceStrokeDashArray_dashdot));
 end
 
-%replace escaped unicode codepoints of the form SUB####SUB where SUB is char(26) and #### is the numeric codepoint
-% replace with an html escape sequence
-SUB = char(26);
-str = regexprep(str, [SUB, '(\d+)', SUB], '&#$1;');
-str = regexprep(str, SUB, ''); % needed because there may be a <glyph> tag containing a SUB character
+if escapeText
+    %replace escaped unicode codepoints of the form SUB####SUB where SUB is char(26) and #### is the numeric codepoint
+    % replace with an html escape sequence
+    SUB = char(26);
+    str = regexprep(str, [SUB, '(\d+)', SUB], '&#$1;');
+    str = regexprep(str, SUB, ''); % needed because there may be a <glyph> tag containing a SUB character
+end
 
 fid = fopen(svgFile, 'w');
 fprintf(fid, '%s', str);
@@ -965,7 +978,8 @@ function restoreInfo = figPatchText(varargin)
 
     p = inputParser;
     p.addOptional('hfig', gcf, @ishandle);
-    p.addOptional('escapeText', true, @islogical);
+    p.addParameter('escapeText', true, @islogical);
+    p.addParameter('replaceFonts', true, @islogical)
     p.KeepUnmatched = true;
     p.parse(varargin{:});
     hfig = p.Results.hfig;
@@ -978,6 +992,12 @@ function restoreInfo = figPatchText(varargin)
     end
     
     escapeText = p.Results.escapeText;
+    replaceFonts = p.Results.replaceFonts;
+
+    if ~escapeText && ~replaceFonts
+        restoreInfo = [];
+        return;
+    end
     
     for iH = numel(htext) : -1 : 1
         h = htext(iH);
@@ -989,7 +1009,7 @@ function restoreInfo = figPatchText(varargin)
             ( isequal(h, h.Parent.Title) || isequal(h, h.Parent.Subtitle) );
         
         % only replace the font name and fix position if its visible (excludes title, subtitle)
-        if ~istitle
+        if replaceFonts
             restoreInfo{iH}.FontName = h.FontName;
 
             if strcmp(h.Type, 'text') && escapeText
@@ -1036,7 +1056,7 @@ function restoreInfo = figPatchText(varargin)
                 
                 h.String = char(strcodes);
             end
-        else
+        elseif replaceFonts
             h.FontName = 'SansSerif';
         end
         
