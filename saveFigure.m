@@ -1051,7 +1051,19 @@ function restoreInfo = figPatchText(varargin)
                 while true
                     idx = find(strcodes > 255, 1, 'first');
                     if isempty(idx), break; end
-                    strcodes = [strcodes(1:idx-1), SUB, uint16(num2str(strcodes(idx))), SUB, strcodes(idx+1:end)];
+                    
+                    if strcodes(idx) >= 0xD800 % high surrogate character (take 2 characters
+                        if idx == length(strcodes)
+                            error('Found high surrogate character in last position of string');
+                        end
+                        high = (strcodes(idx) - 0xD800) * 0x400;
+                        low = strcodes(idx+1) - 0xDC00;
+                        code = uint32(high) + uint32(low) + 0x10000;
+                        strcodes = [strcodes(1:idx-1), SUB, uint16(num2str(code)), SUB, strcodes(idx+2:end)];
+                    else
+                        code = uint16(strcodes(idx));
+                        strcodes = [strcodes(1:idx-1), SUB, uint16(num2str(code)), SUB, strcodes(idx+1:end)];
+                    end
                 end
                 
                 h.String = char(strcodes);
