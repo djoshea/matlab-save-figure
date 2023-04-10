@@ -549,8 +549,14 @@ end
 
 % MATLAB has it's own older version of libtiff.so inside it, so we
 % clear that path when calling imageMagick to avoid issues
-cmd = sprintf('export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s --export-filename=%s %s', ...
-    inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
+if ispc()
+    lib_prefix = '';
+else
+    lib_prefix = 'export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; ';
+end
+
+cmd = sprintf('%s%s --export-filename=%s %s', ...
+    lib_prefix, escapePathForShell(inkscapePath), escapePathForShell(pdfFile), escapePathForShell(svgFile));
 %cmd = sprintf('%s --export-pdf %s %s', inkscapePath, escapePathForShell(pdfFile), escapePathForShell(svgFile));
 [status, result] = system(cmd);
 
@@ -595,17 +601,23 @@ function convertPdf(pdfFile, file, resolution)
 %             convertPath = 'convert';
 %     end
 
-convertPath = getenv('IMAGEMAGICK_CONVERT_PATH');
-if isempty(convertPath)
-    convertPath = 'convert';
+magickPath = getenv('IMAGEMAGICK_MAGICK_PATH');
+if isempty(magickPath)
+    magickPath = 'magick';
 end
 
 % MATLAB has it's own older version of libtiff.so inside it, so we
 % clear that path when calling imageMagick to avoid issues
 %     cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; convert -verbose -quality 100 -density %d %s -resize %d%% %s', ...
 %         density, escapePathForShell(pdfFile), resize, escapePathForShell(file));
-cmd = sprintf('export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; %s -verbose -density %d %s -resample %d %s', ...
-    convertPath, resolution, escapePathForShell(pdfFile), resolution, escapePathForShell(file));
+
+if ispc()
+    lib_prefix = '';
+else
+    lib_prefix = 'export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; ';
+end
+cmd = sprintf('%s%s convert -verbose -density %d %s -resample %d %s', ...
+    lib_prefix, escapePathForShell(magickPath), resolution, escapePathForShell(pdfFile), resolution, escapePathForShell(file));
 [status, result] = system(cmd);
 
 if status
@@ -672,7 +684,14 @@ function path = escapePathForShell(path)
 % Escape a path to a file or directory for embedding within a shell command
 % passed to cmd or unix.
 
-path = strrep(path, ' ', '\ ');
+if ispc()
+    % quote path
+    path = ['"', path, '"'];
+else
+    % escape spaces
+    path = strrep(path, ' ', '\ ');
+end
+
 end
 
 function File = GetFullPath(File)
