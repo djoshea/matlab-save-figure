@@ -552,7 +552,7 @@ end
 if ispc()
     lib_prefix = '';
 else
-    lib_prefix = 'export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; ';
+    lib_prefix = 'export LANG=en_US.UTF-8; export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; export LD_PRELOAD=""; ';
 end
 
 cmd = sprintf('%s%s --export-filename=%s %s', ...
