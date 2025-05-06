@@ -82,7 +82,7 @@ p.addParameter('resolution', 300, @isscalar);
 % set to override resolution to achieve specific pixel width
 p.addParameter('rasterWidthPixels', [], @(x) isempty(x) || isscalar(x));
 
-p.addParameter('replaceFonts', true, @islogical);
+p.addParameter('replaceFonts', isMATLABReleaseOlderThan("R2025a"), @islogical);
 
 p.addParameter('exportFont', '', @ischar);
 
@@ -266,7 +266,9 @@ savedFigLims = figFreezeLims(hfig);
 %     figSetFonts(hfig, 'FontName', 'SansSerif');
 % end
 
-restoreInfo = figPatchText(hfig, 'escapeText', p.Results.escapeText, 'replaceFonts', p.Results.replaceFonts);
+if isMATLABReleaseOlderThan("R2025a")
+    restoreInfo = figPatchText(hfig, 'escapeText', p.Results.escapeText, 'replaceFonts', p.Results.replaceFonts);
+end
 
 % check the figure complexity and determine which path to take
 % if verLessThan('matlab', '9.4.0')
@@ -286,8 +288,12 @@ set(objNormalizedUnits, 'Units', 'data');
 % trick Matlab into rendering everything at higher resolution
 jc = findobjinternal(hfig, '-isa', 'matlab.graphics.primitive.canvas.JavaCanvas', '-depth', 1);
 if isa(jc, 'matlab.graphics.GraphicsPlaceholder')
-    warning('Could not determine screen DPI: JavaCanvas not found');
-    renderDPI = 72; %#ok<NASGU>
+    origDPI = str2double(getenv("SCREEN_DPI"));
+    if isnan(origDPI)
+        warning('Could not determine screen DPI: JavaCanvas not found and SCREEN_DPI not set');
+        origDPI = 72;
+    end
+    renderDPI = origDPI * p.Results.upsample;    %#ok<NASGU>
 else
     origDPI = jc.ScreenPixelsPerInch;
     if p.Results.upsample > 1
@@ -391,7 +397,10 @@ if ~isempty(jc)
 end
 set(objNormalizedUnits, 'Units', 'normalized');
 
-figRestoreText(restoreInfo);
+
+if isMATLABReleaseOlderThan("R2025a")
+    figRestoreText(restoreInfo);
+end
 figUnfreezeLims(hfig, savedFigLims);
 
 hfig.InvertHardcopy = oldInvertHardcopy;
@@ -465,18 +474,25 @@ replaceStrokeDashArray_dashdot = string(p.Results.replaceStrokeDashArray_dashdot
 str = fileread(svgFile);
 
 % first we need to know the current size
-tokens = regexp(str, 'width="(\d+)"', 'tokens', 'once');
-assert(~isempty(tokens), 'Could not find width in SVG file');
-widthPx = str2double(tokens{1});
-tokens = regexp(str, 'height="(\d+)"', 'tokens', 'once');
-assert(~isempty(tokens), 'Could not find height in SVG file');
-heightPx = str2double(tokens{1});
 
-viewBoxStr = sprintf('viewBox="0 0 %g %g"', widthPx * scaleViewBoxBy, heightPx * scaleViewBoxBy);
+if isMATLABReleaseOlderThan("R2025a") % R2025a
+    tokens = regexp(str, 'width="(\d+)"', 'tokens', 'once');
+    assert(~isempty(tokens), 'Could not find width in SVG file');
+    widthPx = str2double(tokens{1});
+    tokens = regexp(str, 'height="(\d+)"', 'tokens', 'once');
+    assert(~isempty(tokens), 'Could not find height in SVG file');
+    heightPx = str2double(tokens{1});
 
-str = regexprep(str, 'width="\d+"', sprintf('width="%s"', widthStr), 'once');
-str = regexprep(str, 'height="\d+"', sprintf('height="%s" %s', heightStr, viewBoxStr), 'once');
+    viewBoxStr = sprintf('viewBox="0 0 %g %g"', widthPx * scaleViewBoxBy, heightPx * scaleViewBoxBy);
 
+    str = regexprep(str, 'width="\d+"', sprintf('width="%s"', widthStr), 'once');
+    str = regexprep(str, 'height="\d+"', sprintf('height="%s" %s', heightStr, viewBoxStr), 'once');
+else
+    % PDF has width, height as mm and viewbox specified correctly
+    str = regexprep(str, 'width="([0-9]*\.[0-9]+)mm"', sprintf('width="%s"', widthStr), 'once');
+    str = regexprep(str, 'height="([0-9]*\.[0-9]+)mm"', sprintf('height="%s"', heightStr), 'once');
+end
+    
 replaceFonts = p.Results.replaceFonts;
 escapeText = p.Results.escapeText;
 
@@ -601,10 +617,15 @@ function convertPdf(pdfFile, file, resolution)
 %             convertPath = 'convert';
 %     end
 
-magickPath = getenv('IMAGEMAGICK_MAGICK_PATH');
-if isempty(magickPath)
-    magickPath = 'magick';
+% magickPath = getenv('IMAGEMAGICK_MAGICK_PATH');
+% if isempty(magickPath)
+%     magickPath = 'magick';
+% end
+convertPath = getenv('IMAGEMAGICK_CONVERT_PATH');
+if isempty(convertPath)
+    convertPath = 'convert';
 end
+
 
 % MATLAB has it's own older version of libtiff.so inside it, so we
 % clear that path when calling imageMagick to avoid issues
@@ -616,8 +637,10 @@ if ispc()
 else
     lib_prefix = 'export LD_LIBRARY_PATH=""; export DYLD_LIBRARY_PATH=""; ';
 end
-cmd = sprintf('%s%s convert -verbose -density %d %s -resample %d %s', ...
-    lib_prefix, escapePathForShell(magickPath), resolution, escapePathForShell(pdfFile), resolution, escapePathForShell(file));
+% cmd = sprintf('%s%s convert -verbose -density %d %s -resample %d %s', ...
+%     lib_prefix, escapePathForShell(magickPath), resolution, escapePathForShell(pdfFile), resolution, escapePathForShell(file));
+cmd = sprintf('%s%s -verbose -density %d %s -resample %d %s', ...
+    lib_prefix, escapePathForShell(convertPath), resolution, escapePathForShell(pdfFile), resolution, escapePathForShell(file));
 [status, result] = system(cmd);
 
 if status
